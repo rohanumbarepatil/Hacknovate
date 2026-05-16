@@ -178,6 +178,57 @@ const LiveMetricCard = ({ stat, index }) => {
   );
 };
 
+// --- CITY ACTIVITY RADAR (Tactical Piece) ---
+const CityActivityRadar = ({ patrols = 42 }) => {
+  // Generate random patrol nodes
+  const nodes = Array.from({ length: 6 }).map((_, i) => ({
+    id: i,
+    x: 25 + Math.random() * 50,
+    y: 25 + Math.random() * 50,
+    size: 2 + Math.random() * 2
+  }));
+
+  return (
+    <div className="relative w-full aspect-square max-w-[200px] mx-auto flex items-center justify-center">
+      {/* Radar Background Grid */}
+      <div className="absolute inset-0 rounded-full border border-blue-500/10 bg-[#0f172a]/50 shadow-[inset_0_0_30px_rgba(59,130,246,0.05)]" />
+      <div className="absolute inset-[25%] rounded-full border border-blue-500/10" />
+      <div className="absolute inset-[50%] rounded-full border border-blue-500/10" />
+      <div className="absolute inset-0 flex items-center justify-center opacity-20">
+        <div className="w-full h-[1px] bg-blue-500" />
+        <div className="h-full w-[1px] bg-blue-500 absolute" />
+      </div>
+
+      {/* Sweeping Line */}
+      <motion.div 
+        className="absolute w-1/2 h-[2px] bg-gradient-to-r from-transparent to-blue-400 origin-left left-1/2 top-1/2 z-10"
+        animate={{ rotate: 360 }}
+        transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+      >
+        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-blue-400 rounded-full shadow-[0_0_10px_rgba(59,130,246,0.8)]" />
+      </motion.div>
+
+      {/* Pulsing Patrol Nodes */}
+      {nodes.map((node) => (
+        <motion.div
+          key={node.id}
+          className="absolute w-1.5 h-1.5 bg-blue-500 rounded-full"
+          style={{ left: `${node.x}%`, top: `${node.y}%` }}
+          animate={{ opacity: [0.2, 0.8, 0.2], scale: [0.8, 1.2, 0.8] }}
+          transition={{ duration: 2 + Math.random() * 2, repeat: Infinity, ease: "easeInOut" }}
+        >
+          <div className="absolute inset-0 rounded-full bg-blue-400 animate-ping" />
+        </motion.div>
+      ))}
+
+      {/* Center Asset */}
+      <div className="relative z-20 h-3 w-3 bg-[#020617] border border-blue-500/50 rounded-full flex items-center justify-center shadow-[0_0_15px_rgba(59,130,246,0.2)]">
+        <div className="h-1 w-1 bg-blue-400 rounded-full" />
+      </div>
+    </div>
+  );
+};
+
 // Common Components
 import { Button, Card, Badge } from '@/components/common';
 
@@ -436,29 +487,83 @@ export default function CitizenPlatform() {
               </div>
             </div>
 
-            {/* 2. Real-time Metrics */}
-            <div className="bg-[#0f172a] border border-[#1e293b] rounded-sm p-5 flex-1 flex flex-col">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wider">City Status</h3>
-                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-[10px] font-semibold text-emerald-400 uppercase">Operational</span>
+            {/* 2. Real-time Visual Intelligence Module */}
+            <div className="bg-[#0b1120] border border-[#1e293b] rounded-sm p-6 flex-1 flex flex-col relative overflow-hidden group shadow-[inset_0_0_40px_rgba(0,0,0,0.3)]">
+              {/* Subtle background city map pattern */}
+              <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] scale-150" />
+              
+              <div className="flex items-center justify-between mb-6 relative z-10">
+                <div className="flex flex-col">
+                   <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] mb-1">City Status</h3>
+                   <div className="flex items-center gap-2">
+                     <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-sm bg-emerald-500/10 border border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.1)]">
+                       <span className="h-1 w-1 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_5px_rgba(16,185,129,1)]" />
+                       <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest">Operational</span>
+                     </div>
+                   </div>
+                </div>
+                <div className="flex flex-col items-end">
+                   <div className="text-[9px] font-mono text-blue-400/60 uppercase tracking-widest mb-1 flex items-center gap-1">
+                     <Radio className="h-2.5 w-2.5 animate-pulse" /> Live Stream
+                   </div>
+                   <span className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.1em]">
+                     {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                   </span>
                 </div>
               </div>
               
-              <div className="space-y-4 mt-2">
-                <div>
-                  <p className="text-xs text-gray-400 mb-1">Active Patrols</p>
-                  <p className="text-2xl font-semibold text-white">42 <span className="text-sm font-normal text-gray-500">units</span></p>
+              {/* CENTERPIECE - Operational Radar */}
+              <div className="flex-1 flex flex-col justify-center py-4 relative z-10">
+                <CityActivityRadar patrols={stats?.emergencyDispatches || 42} />
+                <div className="mt-4 text-center">
+                  <span className="text-[9px] font-bold text-gray-500 uppercase tracking-[0.3em] opacity-60">Scanning Sectors...</span>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-400 mb-1">Current Threat Level</p>
-                  <p className="text-lg font-medium text-blue-400">Low (Routine)</p>
+              </div>
+
+              {/* DYNAMIC METRIC GRID */}
+              <div className="grid grid-cols-2 gap-4 mt-6 relative z-10">
+                <div className="bg-[#0f172a]/80 border border-[#1e293b] p-3 rounded-sm group/metric hover:border-blue-500/30 transition-colors">
+                  <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-2">Active Patrols</p>
+                  <div className="flex items-end gap-2">
+                    <span className="text-xl font-bold text-white leading-none">
+                      <AnimatedCounter value={stats?.emergencyDispatches || 42} />
+                    </span>
+                    <span className="text-[9px] font-bold text-gray-600 uppercase mb-0.5 tracking-wider">Units</span>
+                  </div>
+                  <div className="mt-2 h-[2px] w-full bg-[#1e293b] rounded-full overflow-hidden">
+                    <motion.div 
+                      className="h-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"
+                      initial={{ width: 0 }}
+                      animate={{ width: "65%" }}
+                      transition={{ duration: 1.5, ease: "easeOut" }}
+                    />
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-gray-400 mb-1">Last Update</p>
-                  <p className="text-sm font-mono text-gray-300">Just now</p>
+
+                <div className="bg-[#0f172a]/80 border border-[#1e293b] p-3 rounded-sm group/metric hover:border-red-500/30 transition-colors">
+                  <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-2">Threat Level</p>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[11px] font-bold uppercase tracking-widest ${stats?.avgRiskScore > 7 ? 'text-red-400' : stats?.avgRiskScore > 4 ? 'text-amber-400' : 'text-blue-400'}`}>
+                      {stats?.avgRiskScore > 7 ? 'Critical' : stats?.avgRiskScore > 4 ? 'Elevated' : 'Routine'}
+                    </span>
+                    <div className="flex gap-0.5">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className={`h-1.5 w-3 rounded-full ${i <= (stats?.avgRiskScore > 7 ? 3 : stats?.avgRiskScore > 4 ? 2 : 1) ? (stats?.avgRiskScore > 7 ? 'bg-red-500' : stats?.avgRiskScore > 4 ? 'bg-amber-500' : 'bg-blue-500') : 'bg-[#1e293b]'}`} />
+                      ))}
+                    </div>
+                  </div>
+                  <p className="text-[9px] text-gray-600 font-bold mt-2 uppercase tracking-tighter italic">AI Security Score: {stats?.avgRiskScore?.toFixed(1) || '2.4'}/10</p>
                 </div>
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-[#1e293b] flex items-center justify-between relative z-10">
+                <div className="flex items-center gap-2">
+                  <div className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
+                  <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Network Sync</span>
+                </div>
+                <span className="text-[9px] font-mono text-gray-500 uppercase">
+                  Updated {stats?.lastSync ? new Date(stats.lastSync).toLocaleTimeString([], { minute: '2-digit', second: '2-digit' }) : 'Just Now'}
+                </span>
               </div>
             </div>
             
