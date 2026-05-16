@@ -1,90 +1,82 @@
 import { useEffect, useRef } from 'react';
-import mapService from '@/services/mapService';
 
-/**
- * RiskZoneLayer — AI risk zone polygons
- * Colors zones from green (safe) to red (critical) based on score.
- */
+const AI_RISK_ZONES = [
+  { id: 'Z-Alpha', lat: 18.5204, lng: 73.8567, radius: 800, threatLevel: 'HIGH', score: 89, reason: 'Crowd density spike & 5 complaints' },
+  { id: 'Z-Beta', lat: 18.5400, lng: 73.8400, radius: 1200, threatLevel: 'ELEVATED', score: 74, reason: 'Historical night-time crime data' },
+  { id: 'Z-Gamma', lat: 18.5100, lng: 73.8700, radius: 600, threatLevel: 'MODERATE', score: 55, reason: 'Traffic anomalies detected' },
+];
+
 export default function RiskZoneLayer({ map }) {
-  const polygonsRef = useRef([]);
+  const circlesRef = useRef([]);
 
   useEffect(() => {
     if (!map || !window.google) return;
-    let isMounted = true;
 
-    async function loadData() {
-      try {
-        const response = await mapService.getRiskZones();
-        if (!isMounted) return;
-        renderZones(response.data || response || []);
-      } catch {
-        // Demo fallback for Satara wards
-        const demo = [
-          { name: 'Shanivar Peth', score: 72, center: { lat: 17.6868, lng: 74.0183 } },
-          { name: 'Sadar Bazar', score: 58, center: { lat: 17.6900, lng: 74.0140 } },
-          { name: 'Godoli', score: 35, center: { lat: 17.6800, lng: 74.0260 } },
-          { name: 'Powai Naka', score: 65, center: { lat: 17.6830, lng: 74.0220 } },
-          { name: 'Yawateshwar', score: 22, center: { lat: 17.6950, lng: 74.0100 } },
-        ];
-        if (isMounted) renderDemoCircles(demo);
-      }
-    }
+    let activeInfoWindow = null;
+    let animInterval = null;
 
-    function scoreToColor(score) {
-      if (score >= 70) return '#ef4444';
-      if (score >= 50) return '#f97316';
-      if (score >= 30) return '#eab308';
-      return '#22c55e';
-    }
-
-    function renderZones(zones) {
-      clearPolygons();
-      zones.forEach((zone) => {
-        if (zone.boundary) {
-          // Parse GeoJSON polygon
-          const coords = JSON.parse(zone.boundary).coordinates[0].map(
-            ([lng, lat]) => ({ lat, lng })
-          );
-          const polygon = new window.google.maps.Polygon({
-            paths: coords, map,
-            fillColor: scoreToColor(zone.score || 0),
-            fillOpacity: 0.25,
-            strokeColor: scoreToColor(zone.score || 0),
-            strokeWeight: 2, strokeOpacity: 0.6,
-            clickable: true,
-          });
-          const info = new window.google.maps.InfoWindow({
-            content: `<div style="color:#111;padding:4px"><strong>📊 ${zone.name}</strong><br/>Risk Score: <b style="color:${scoreToColor(zone.score)}">${zone.score}%</b></div>`,
-          });
-          polygon.addListener('click', (e) => { info.setPosition(e.latLng); info.open(map); });
-          polygonsRef.current.push(polygon);
-        }
-      });
-    }
-
-    function renderDemoCircles(zones) {
-      clearPolygons();
-      zones.forEach((zone) => {
+    function renderZones() {
+      AI_RISK_ZONES.forEach(zone => {
+        const color = zone.threatLevel === 'HIGH' ? '#ef4444' : zone.threatLevel === 'ELEVATED' ? '#f97316' : '#eab308';
+        
         const circle = new window.google.maps.Circle({
-          center: zone.center, map,
-          radius: 500,
-          fillColor: scoreToColor(zone.score),
-          fillOpacity: 0.2,
-          strokeColor: scoreToColor(zone.score),
-          strokeWeight: 2, strokeOpacity: 0.5,
-          clickable: true,
+          strokeColor: color,
+          strokeOpacity: 0.8,
+          strokeWeight: 2,
+          fillColor: color,
+          fillOpacity: 0.15,
+          map,
+          center: { lat: zone.lat, lng: zone.lng },
+          radius: zone.radius
         });
-        const info = new window.google.maps.InfoWindow({
-          content: `<div style="color:#111;padding:4px"><strong>📊 ${zone.name}</strong><br/>Risk: <b style="color:${scoreToColor(zone.score)}">${zone.score}%</b></div>`,
+
+        const contentString = `
+          <div style="min-width: 220px; font-family: 'Inter', sans-serif; padding: 12px; background: #0b1120; border: 1px solid #1e293b; border-radius: 4px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <span style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; color: ${color}; text-transform: uppercase;">AI RISK ZONE</span>
+              <span style="padding: 2px 6px; background: ${color}20; color: ${color}; font-size: 9px; font-weight: bold; border-radius: 2px;">${zone.threatLevel}</span>
+            </div>
+            <h3 style="margin: 0 0 4px 0; font-size: 15px; font-weight: 600; color: #f8fafc;">Zone ${zone.id}</h3>
+            <div style="font-size: 11px; color: #94a3b8; margin-bottom: 8px; line-height: 1.4;">
+              ${zone.reason}
+            </div>
+            <div style="display: flex; justify-content: space-between; border-top: 1px solid #1e293b; padding-top: 8px;">
+               <span style="font-size: 10px; color: #64748b; text-transform: uppercase;">Threat Score</span>
+               <span style="font-size: 11px; color: #f8fafc; font-weight: 600;">${zone.score}%</span>
+            </div>
+          </div>
+        `;
+
+        const infoWindow = new window.google.maps.InfoWindow({ content: contentString });
+
+        circle.addListener('click', (e) => {
+          if (activeInfoWindow) activeInfoWindow.close();
+          infoWindow.setPosition(e.latLng);
+          infoWindow.open(map);
+          activeInfoWindow = infoWindow;
         });
-        circle.addListener('click', (e) => { info.setPosition(e.latLng); info.open(map); });
-        polygonsRef.current.push(circle);
+
+        circlesRef.current.push({ circle, baseRadius: zone.radius });
       });
+
+      // Animated pulsing risk circles
+      let phase = 0;
+      animInterval = setInterval(() => {
+        phase += 0.05;
+        circlesRef.current.forEach(({ circle, baseRadius }) => {
+          const pulse = Math.sin(phase) * (baseRadius * 0.05); // +/- 5% radius pulse
+          circle.setRadius(baseRadius + pulse);
+        });
+      }, 50);
     }
 
-    function clearPolygons() { polygonsRef.current.forEach((p) => p.setMap(null)); polygonsRef.current = []; }
-    loadData();
-    return () => { isMounted = false; clearPolygons(); };
+    renderZones();
+
+    return () => {
+      circlesRef.current.forEach(({ circle }) => circle.setMap(null));
+      circlesRef.current = [];
+      if (animInterval) clearInterval(animInterval);
+    };
   }, [map]);
 
   return null;

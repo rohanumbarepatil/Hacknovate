@@ -51,3 +51,12 @@ export const getZoneForecast = async (req, res, next) => {
     next(err);
   }
 };
+
+export const getLiveFeed = async (req, res, next) => {
+  try {
+    const feed = await analyticsService.getLiveFeed();
+    res.json(success(feed));
+  } catch (err) {
+    next(err);
+  }
+};

@@ -7,7 +7,7 @@ import { cn } from '@/utils/cn';
 // Environment variable handling for API Key
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
-const libraries = ['places', 'geometry', 'drawing'];
+const libraries = ['places', 'geometry', 'drawing', 'visualization'];
 
 /**
  * MapContainer — Core Google Maps wrapper using @react-google-maps/api

@@ -1,129 +1,104 @@
 import { useEffect, useRef } from 'react';
-import mapService from '@/services/mapService';
 
-/**
- * UnsafeRoadLayer — Polyline overlays for dangerous roads
- * Renders red polylines with stroke weight proportional to danger level.
- */
+const UNSAFE_ROADS = [
+  {
+    id: 'R-101',
+    name: 'FC Road Dark Alley',
+    reason: 'Poor Lighting & Snatching',
+    path: [
+      { lat: 18.5204, lng: 73.8400 },
+      { lat: 18.5180, lng: 73.8420 },
+      { lat: 18.5150, lng: 73.8410 }
+    ]
+  },
+  {
+    id: 'R-102',
+    name: 'Camp East Sector',
+    reason: 'Repeated Complaints',
+    path: [
+      { lat: 18.5304, lng: 73.8700 },
+      { lat: 18.5350, lng: 73.8720 },
+      { lat: 18.5400, lng: 73.8680 }
+    ]
+  }
+];
+
 export default function UnsafeRoadLayer({ map }) {
-  const polylinesRef = useRef([]);
+  const linesRef = useRef([]);
 
   useEffect(() => {
     if (!map || !window.google) return;
 
-    let isMounted = true;
+    let activeInfoWindow = null;
+    let animationPhase = 0;
+    let animInterval = null;
 
-    async function loadData() {
-      try {
-        const response = await mapService.getUnsafeRoads();
-        if (!isMounted) return;
-        renderRoads(response.data || response || []);
-      } catch (err) {
-        console.error('Failed to load unsafe roads:', err);
-
-        // Demo roads for Satara
-        const demoRoads = [
-          {
-            name: 'NH4 Bypass - Dark stretch',
-            danger_level: 8,
-            reason: 'No street lights, frequent accidents',
-            path: [
-              { lat: 17.6900, lng: 74.0100 },
-              { lat: 17.6920, lng: 74.0140 },
-              { lat: 17.6940, lng: 74.0180 },
-            ],
-          },
-          {
-            name: 'Powai Naka - Sharp turn',
-            danger_level: 7,
-            reason: 'Blind curve, heavy traffic',
-            path: [
-              { lat: 17.6810, lng: 74.0220 },
-              { lat: 17.6830, lng: 74.0240 },
-              { lat: 17.6850, lng: 74.0250 },
-            ],
-          },
-          {
-            name: 'Godoli Industrial Road',
-            danger_level: 6,
-            reason: 'Heavy vehicle traffic, poor condition',
-            path: [
-              { lat: 17.6780, lng: 74.0280 },
-              { lat: 17.6790, lng: 74.0300 },
-              { lat: 17.6800, lng: 74.0320 },
-              { lat: 17.6810, lng: 74.0340 },
-            ],
-          },
-          {
-            name: 'Sadar Bazar narrow lane',
-            danger_level: 5,
-            reason: 'Narrow road, encroachment',
-            path: [
-              { lat: 17.6860, lng: 74.0160 },
-              { lat: 17.6870, lng: 74.0170 },
-              { lat: 17.6880, lng: 74.0180 },
-            ],
-          },
-        ];
-
-        if (!isMounted) return;
-        renderRoads(demoRoads);
-      }
-    }
-
-    function renderRoads(roads) {
-      clearPolylines();
-
-      roads.forEach((road) => {
-        const dangerLevel = road.danger_level || 5;
-
-        // Color intensity based on danger level
-        const opacity = 0.4 + (dangerLevel / 10) * 0.5;
-        const weight = 2 + (dangerLevel * 0.6);
-
-        const polyline = new window.google.maps.Polyline({
+    function renderLines() {
+      UNSAFE_ROADS.forEach((road) => {
+        // Red glowing path
+        const line = new window.google.maps.Polyline({
           path: road.path,
-          map,
+          geodesic: true,
           strokeColor: '#ef4444',
-          strokeOpacity: opacity,
-          strokeWeight: weight,
-          clickable: true,
+          strokeOpacity: 0, // Controlled by animation
+          strokeWeight: 6,
+          map: map
         });
 
-        // InfoWindow on click
-        const infoWindow = new window.google.maps.InfoWindow({
-          content: `
-            <div style="color: #111; padding: 4px; max-width: 220px;">
-              <strong style="font-size: 13px;">⚠️ ${road.name}</strong>
-              <p style="margin: 4px 0 0; font-size: 12px; color: #666;">
-                Danger Level: <span style="color: #ef4444; font-weight: bold;">${dangerLevel}/10</span>
-              </p>
-              <p style="margin: 2px 0 0; font-size: 11px; color: #888;">
-                ${road.reason || ''}
-              </p>
+        // Clickable invisible thick line for easier interaction
+        const clickLine = new window.google.maps.Polyline({
+          path: road.path,
+          strokeOpacity: 0.0,
+          strokeWeight: 20,
+          map: map,
+          zIndex: 100
+        });
+
+        const contentString = `
+          <div style="min-width: 200px; font-family: 'Inter', sans-serif; padding: 12px; background: #0b1120; border: 1px solid #1e293b; border-radius: 4px;">
+            <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; color: #ef4444; text-transform: uppercase; margin-bottom: 6px;">UNSAFE ROUTE</div>
+            <h3 style="margin: 0 0 4px 0; font-size: 14px; font-weight: 600; color: #f8fafc;">${road.name}</h3>
+            <div style="font-size: 11px; color: #94a3b8; display: flex; align-items: center; gap: 4px;">
+              <span style="color: #f97316;">⚠️</span> ${road.reason}
             </div>
-          `,
-        });
+            <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #1e293b; font-size: 10px; color: #3b82f6; cursor: pointer; text-transform: uppercase; font-weight: 600;">
+              View Safe Alternative →
+            </div>
+          </div>
+        `;
 
-        polyline.addListener('click', (e) => {
+        const infoWindow = new window.google.maps.InfoWindow({ content: contentString });
+
+        clickLine.addListener('click', (e) => {
+          if (activeInfoWindow) activeInfoWindow.close();
           infoWindow.setPosition(e.latLng);
           infoWindow.open(map);
+          activeInfoWindow = infoWindow;
         });
 
-        polylinesRef.current.push(polyline);
+        linesRef.current.push({ visual: line, click: clickLine });
       });
+
+      // Animated warning borders (pulsing opacity)
+      animInterval = setInterval(() => {
+        animationPhase = (animationPhase + 1) % 20;
+        const opacity = 0.4 + (Math.sin(animationPhase * 0.314) * 0.4);
+        
+        linesRef.current.forEach(({ visual }) => {
+          visual.setOptions({ strokeOpacity: opacity });
+        });
+      }, 100);
     }
 
-    function clearPolylines() {
-      polylinesRef.current.forEach((p) => p.setMap(null));
-      polylinesRef.current = [];
-    }
-
-    loadData();
+    renderLines();
 
     return () => {
-      isMounted = false;
-      clearPolylines();
+      linesRef.current.forEach(({ visual, click }) => {
+        visual.setMap(null);
+        click.setMap(null);
+      });
+      linesRef.current = [];
+      if (animInterval) clearInterval(animInterval);
     };
   }, [map]);
 

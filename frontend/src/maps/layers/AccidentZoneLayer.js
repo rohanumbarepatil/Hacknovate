@@ -1,94 +1,109 @@
 import { useEffect, useRef } from 'react';
-import mapService from '@/services/mapService';
-import { SEVERITY_COLORS } from '@/constants/mapConfig';
 
-/**
- * AccidentZoneLayer — Marker clusters for accident locations
- * Shows accident points with severity-coded markers.
- */
+// Generates dummy accident points clustered heavily in Pune intersections
+const getAccidentPoints = () => {
+  const points = [];
+  const baseLat = 18.5204;
+  const baseLng = 73.8567;
+  
+  // Center cluster
+  for (let i = 0; i < 40; i++) {
+    points.push(new window.google.maps.LatLng(baseLat + (Math.random() - 0.5) * 0.02, baseLng + (Math.random() - 0.5) * 0.02));
+  }
+  // Secondary cluster
+  for (let i = 0; i < 25; i++) {
+    points.push(new window.google.maps.LatLng(baseLat + 0.03 + (Math.random() - 0.5) * 0.015, baseLng + 0.01 + (Math.random() - 0.5) * 0.015));
+  }
+  return points;
+};
+
+const HIGH_RISK_ZONES = [
+  { lat: 18.5204, lng: 73.8567, title: 'Shivaji Nagar Junction', score: 87, incidents: 14 },
+  { lat: 18.5504, lng: 73.8667, title: 'Pune Station Road', score: 92, incidents: 21 },
+];
+
 export default function AccidentZoneLayer({ map }) {
+  const heatmapRef = useRef(null);
   const markersRef = useRef([]);
 
   useEffect(() => {
-    if (!map || !window.google) return;
+    if (!map || !window.google || !window.google.maps.visualization) return;
 
     let isMounted = true;
+    let activeInfoWindow = null;
 
-    async function loadData() {
-      try {
-        const response = await mapService.getAccidentZones();
-        if (!isMounted) return;
-        renderMarkers(response.data || response || []);
-      } catch (err) {
-        console.error('Failed to load accident zones:', err);
+    // Heatmap Visualization
+    heatmapRef.current = new window.google.maps.visualization.HeatmapLayer({
+      data: getAccidentPoints(),
+      map: map,
+      radius: 40,
+      opacity: 0.8,
+      gradient: [
+        'rgba(0, 255, 255, 0)',
+        'rgba(0, 255, 255, 1)',
+        'rgba(0, 191, 255, 1)',
+        'rgba(0, 127, 255, 1)',
+        'rgba(0, 63, 255, 1)',
+        'rgba(0, 0, 255, 1)',
+        'rgba(0, 0, 223, 1)',
+        'rgba(0, 0, 191, 1)',
+        'rgba(0, 0, 159, 1)',
+        'rgba(0, 0, 127, 1)',
+        'rgba(63, 0, 91, 1)',
+        'rgba(127, 0, 63, 1)',
+        'rgba(191, 0, 31, 1)',
+        'rgba(255, 0, 0, 1)'
+      ]
+    });
 
-        // Demo fallback data for Satara
-        const demoData = [
-          { lat: 17.6870, lng: 74.0190, severity: 8, title: 'Major collision - NH4 Junction' },
-          { lat: 17.6920, lng: 74.0140, severity: 6, title: 'Two-wheeler accident - Market Road' },
-          { lat: 17.6810, lng: 74.0230, severity: 9, title: 'Bus accident - Powai Naka' },
-          { lat: 17.6890, lng: 74.0090, severity: 5, title: 'Minor collision - Sadar Bazar' },
-          { lat: 17.6950, lng: 74.0260, severity: 7, title: 'Pedestrian hit - Godoli Circle' },
-          { lat: 17.6830, lng: 74.0170, severity: 4, title: 'Fender bender - Shanivar Peth' },
-        ];
-
-        if (!isMounted) return;
-        renderMarkers(demoData);
-      }
-    }
-
-    function renderMarkers(data) {
-      // Clear existing markers
-      clearMarkers();
-
-      data.forEach((point) => {
-        const severity = point.severity || 5;
-        const color = SEVERITY_COLORS[severity] || '#f97316';
-
-        const marker = new window.google.maps.Marker({
-          position: { lat: point.lat, lng: point.lng },
-          map,
-          title: point.title || 'Accident Zone',
-          icon: {
-            path: window.google.maps.SymbolPath.CIRCLE,
-            fillColor: color,
-            fillOpacity: 0.8,
-            strokeColor: '#ffffff',
-            strokeWeight: 2,
-            scale: 8 + (severity * 0.5),
-          },
-        });
-
-        // InfoWindow on click
-        const infoWindow = new window.google.maps.InfoWindow({
-          content: `
-            <div style="color: #111; padding: 4px; max-width: 200px;">
-              <strong style="font-size: 13px;">🚗 ${point.title || 'Accident'}</strong>
-              <p style="margin: 4px 0 0; font-size: 12px; color: #666;">
-                Severity: <span style="color: ${color}; font-weight: bold;">${severity}/10</span>
-              </p>
-            </div>
-          `,
-        });
-
-        marker.addListener('click', () => {
-          infoWindow.open(map, marker);
-        });
-
-        markersRef.current.push(marker);
+    // Add Markers for specific High Risk intersections
+    HIGH_RISK_ZONES.forEach(zone => {
+      const marker = new window.google.maps.Marker({
+        position: { lat: zone.lat, lng: zone.lng },
+        map: map,
+        icon: {
+          path: window.google.maps.SymbolPath.CIRCLE,
+          fillColor: '#ef4444',
+          fillOpacity: 1,
+          strokeColor: '#ffffff',
+          strokeWeight: 2,
+          scale: 9
+        }
       });
-    }
 
-    function clearMarkers() {
-      markersRef.current.forEach((m) => m.setMap(null));
-      markersRef.current = [];
-    }
+      const contentString = `
+        <div style="min-width: 220px; font-family: 'Inter', sans-serif; padding: 12px; background: #0b1120; border: 1px solid #1e293b; border-radius: 4px;">
+          <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; color: #ef4444; text-transform: uppercase; margin-bottom: 6px;">ACCIDENT PRONE ZONE</div>
+          <h3 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: #f8fafc;">${zone.title}</h3>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div style="display: flex; justify-content: space-between; font-size: 11px;">
+              <span style="color: #94a3b8;">Risk Probability</span>
+              <span style="color: #ef4444; font-weight: 600;">${zone.score}%</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 11px;">
+              <span style="color: #94a3b8;">Recent Crashes</span>
+              <span style="color: #f8fafc; font-weight: 600;">${zone.incidents}</span>
+            </div>
+          </div>
+        </div>
+      `;
 
-    loadData();
+      const infoWindow = new window.google.maps.InfoWindow({ content: contentString });
+
+      marker.addListener('click', () => {
+        if (activeInfoWindow) activeInfoWindow.close();
+        infoWindow.open(map, marker);
+        activeInfoWindow = infoWindow;
+      });
+
+      markersRef.current.push(marker);
+    });
 
     return () => {
       isMounted = false;
-      clearMarkers();
+      if (heatmapRef.current) heatmapRef.current.setMap(null);
+      markersRef.current.forEach(m => m.setMap(null));
+      markersRef.current = [];
     };
   }, [map]);
 
