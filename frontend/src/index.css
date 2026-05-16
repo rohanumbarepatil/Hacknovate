@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-tactical-bg text-tactical-textPrimary font-general-sans overflow-x-hidden;
+  }
+}
+
+@layer components {
+  /* Tactical Scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-tactical-bgSecondary rounded-full;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-tactical-border rounded-full hover:bg-tactical-textSecondary transition-colors;
+  }
+
+  /* Map Container Overrides for cleaner look */
+  .gm-style iframe + div { border:none!important; }
+}
+
+/* Remove default link outlines for mouse users */
+a:focus:not(:focus-visible), button:focus:not(:focus-visible) {
+  outline: none;
+}

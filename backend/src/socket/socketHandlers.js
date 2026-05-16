@@ -1,0 +1,45 @@
+import logger from '../utils/logger.js';
+import { SOCKET_EVENTS } from '../constants/socketEvents.js';
+import vehicleService from '../services/vehicleService.js';
+
+/**
+ * Socket.io Handlers - Orchestrates real-time events.
+ */
+export function setupSocketHandlers(io) {
+  io.on('connection', (socket) => {
+    logger.socket(`New client connected: ${socket.id}`);
+
+    // Join rooms based on role
+    socket.on(SOCKET_EVENTS.JOIN_ROOM, (room) => {
+      socket.join(room);
+      logger.socket(`Socket ${socket.id} joined room: ${room}`);
+    });
+
+    socket.on(SOCKET_EVENTS.LEAVE_ROOM, (room) => {
+      socket.leave(room);
+      logger.socket(`Socket ${socket.id} left room: ${room}`);
+    });
+
+    // Real-time Vehicle Updates (from units)
+    socket.on(SOCKET_EVENTS.VEHICLE_POSITION, async (data) => {
+      const { vehicleId, lat, lng, speed, heading } = data;
+      try {
+        await vehicleService.updatePosition(vehicleId, lat, lng, speed, heading);
+        // Position update is broadcasted inside the service
+      } catch (err) {
+        logger.error(`Failed to update vehicle position: ${err.message}`);
+      }
+    });
+
+    // Handle SOS alerts triggered via socket (optional fallback)
+    socket.on(SOCKET_EVENTS.SOS_ALERT, (data) => {
+      logger.error(`Socket SOS alert: ${JSON.id}`);
+      // Re-broadcast to authority room
+      socket.to('authority_room').emit(SOCKET_EVENTS.SOS_NEW, data);
+    });
+
+    socket.on('disconnect', () => {
+      logger.socket(`Client disconnected: ${socket.id}`);
+    });
+  });
+}

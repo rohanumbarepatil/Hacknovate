@@ -1,0 +1,14 @@
+node_modules/
+.env
+dist/
+build/
+.DS_Store
+.tempmediaStorage/
+artifacts/
+scratchpad*/
+__pycache__/
+*.pyc
+*.pyo
+venv/
+env/
+.pytest_cache/
