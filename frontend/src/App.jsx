@@ -7,8 +7,7 @@ import useAuthStore from '@/store/useAuthStore';
 import { useSocket } from '@/hooks/useSocket';
 
 // Pages
-import Landing from '@/pages/Landing';
-import CitizenView from '@/pages/CitizenView';
+import CitizenPlatform from '@/pages/CitizenPlatform';
 import AuthorityView from '@/pages/AuthorityView';
 
 function App() {
@@ -44,9 +43,11 @@ function App() {
     <BrowserRouter>
       <div className="min-h-screen bg-tactical-bg text-tactical-textPrimary selection:bg-tactical-primary/30 selection:text-white">
         <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/citizen/*" element={<CitizenView />} />
+          {/* Main Citizen Platform acts as Root */}
+          <Route path="/" element={<CitizenPlatform />} />
           <Route path="/authority/*" element={<AuthorityView />} />
+          {/* Redirect old citizen routes to home */}
+          <Route path="/citizen/*" element={<Navigate to="/" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <ToastContainer />
