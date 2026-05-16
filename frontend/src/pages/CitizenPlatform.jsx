@@ -46,10 +46,10 @@ export default function CitizenPlatform() {
           <video autoPlay muted loop playsInline className="w-full h-full object-cover">
             <source src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260217_030345_246c0224-10a4-422c-b324-070b7c0eceda.mp4" type="video/mp4" />
           </video>
-          {/* Tactical Overlay - Minimal, dark, professional */}
-          <div className="absolute inset-0 bg-[#020617]/85" />
-          {/* Soft gradient for cinematic blend */}
-          <div className="absolute inset-0 bg-gradient-to-b from-[#020617] via-transparent to-[#020617]/90 opacity-90" />
+          {/* Tactical Overlay - Transparent enough to see the video clearly */}
+          <div className="absolute inset-0 bg-[#020617]/40" />
+          {/* Soft gradient for cinematic blend without hiding the center */}
+          <div className="absolute inset-0 bg-gradient-to-b from-[#020617]/70 via-transparent to-[#020617]/95" />
         </div>
 
         {/* Enterprise Navbar */}
@@ -137,10 +137,10 @@ export default function CitizenPlatform() {
             </div>
 
             {/* ACTUAL LIVE MAP PREVIEW */}
-            <div className="flex-1 bg-[#0f172a] border border-white/10 rounded-xl relative overflow-hidden shadow-2xl flex flex-col min-h-[500px]">
+            <div className="flex-1 bg-[#0f172a] border border-white/10 rounded-xl relative overflow-hidden shadow-2xl flex flex-col h-[600px] min-h-[600px]">
               
               {/* MapContainer renders the real Google Maps canvas */}
-              <div className="absolute inset-0 z-0">
+              <div className="absolute inset-0 z-0 bg-[#060b14]">
                 <MapContainer mode="tactical">
                   {(map) => (
                     <>
@@ -152,8 +152,8 @@ export default function CitizenPlatform() {
                     </>
                   )}
                 </MapContainer>
-                {/* Very subtle vignette to blend the map into the dark theme without obscuring it */}
-                <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,transparent_70%,#0f172a_100%)] opacity-30" />
+                {/* Crisp map view with only a subtle inner shadow on the edges */}
+                <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_40px_rgba(2,6,23,0.6)]" />
               </div>
 
               {/* Map UI Overlay (Top) - Enterprise Style */}

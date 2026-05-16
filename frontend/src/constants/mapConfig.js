@@ -3,10 +3,10 @@
  * Center: Satara, Maharashtra, India
  */
 
-// Default map center (Satara city)
+// Default map center (Pune city)
 export const MAP_CENTER = {
-  lat: 17.6868,
-  lng: 74.0183,
+  lat: 18.5204,
+  lng: 73.8567,
 };
 
 // Default zoom levels
