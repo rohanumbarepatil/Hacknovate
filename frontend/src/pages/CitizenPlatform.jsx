@@ -82,24 +82,86 @@ export default function CitizenPlatform() {
           {/* LEFT PANEL - Operational Controls */}
           <div className="w-full xl:w-80 flex flex-col gap-4 shrink-0">
             
-            {/* 1. SOS Emergency Control (Clean Microsoft Style) */}
-            <div className="bg-[#0f172a]/80 backdrop-blur-md border border-white/5 rounded-xl p-6 flex flex-col items-center justify-center relative shadow-lg">
-              <h3 className="text-xs font-medium text-gray-400 mb-6 uppercase tracking-wider w-full text-center">Emergency Access</h3>
-              <div className="relative w-32 h-32 flex items-center justify-center mb-4">
-                {/* Clean realistic pulse */}
-                <div className="absolute inset-0 rounded-full bg-red-500/10 animate-ping" />
-                <div className="absolute inset-4 rounded-full bg-red-500/20" />
-                <a href="#report" className="relative w-20 h-20 bg-red-600 border border-red-500 shadow-xl rounded-full flex items-center justify-center text-2xl font-bold text-white hover:bg-red-500 transition-colors z-10 cursor-pointer">
-                  SOS
+            {/* 1. SOS Emergency System (Tactical Radar Style) */}
+            <div className="bg-[#0b1120] border border-[#1e293b] rounded-sm p-6 flex flex-col items-center justify-center relative overflow-hidden group shadow-[inset_0_0_60px_rgba(0,0,0,0.5)]">
+              {/* Subtle background radar grid */}
+              <div className="absolute inset-0 pointer-events-none opacity-[0.03] bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:16px_16px]" />
+              
+              <h3 className="text-[10px] font-bold text-gray-500 mb-6 uppercase tracking-[0.2em] w-full text-center z-10 flex items-center justify-center gap-2">
+                <span className="h-px w-8 bg-gray-700" />
+                Emergency System
+                <span className="h-px w-8 bg-gray-700" />
+              </h3>
+              
+              <div className="relative w-44 h-44 flex items-center justify-center mb-6 z-10">
+                {/* Radar Crosshairs */}
+                <div className="absolute inset-0 pointer-events-none opacity-20">
+                  <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-red-500 -translate-x-1/2" />
+                  <div className="absolute top-1/2 left-0 right-0 h-[1px] bg-red-500 -translate-y-1/2" />
+                </div>
+
+                {/* Rotating Outer Tactical Rings */}
+                <motion.svg 
+                  className="absolute inset-0 w-full h-full text-red-500"
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
+                  viewBox="0 0 100 100"
+                >
+                  {/* Outer thin dashed ring */}
+                  <circle cx="50" cy="50" r="48" fill="none" stroke="currentColor" strokeWidth="0.5" strokeDasharray="2 4" className="opacity-40" />
+                  
+                  {/* Main thick segmented ring (matches image style) */}
+                  <circle 
+                    cx="50" 
+                    cy="50" 
+                    r="43" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="3.5" 
+                    strokeDasharray="125 10" 
+                    strokeLinecap="round"
+                    className="opacity-90 drop-shadow-[0_0_8px_rgba(239,68,68,0.6)]" 
+                  />
+                  
+                  {/* Inner technical thin ring */}
+                  <circle cx="50" cy="50" r="38" fill="none" stroke="currentColor" strokeWidth="0.75" className="opacity-30" />
+                  
+                  {/* Precision markers */}
+                  <path d="M 50 2 L 50 8 M 50 92 L 50 98 M 2 50 L 8 50 M 92 50 L 98 50" stroke="currentColor" strokeWidth="1.5" className="opacity-60" />
+                </motion.svg>
+
+                {/* Middle Pulse Ring */}
+                <div className="absolute inset-4 rounded-full border border-red-500/20 animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite]" />
+
+                {/* Core Button Base */}
+                <div className="absolute inset-6 rounded-full border border-red-500/30 bg-[#060b14] flex items-center justify-center shadow-[inset_0_0_20px_rgba(220,38,38,0.1)]">
+                  {/* Subtle inner glow */}
+                  <div className="absolute inset-0 rounded-full bg-red-500/10 blur-xl" />
+                </div>
+
+                {/* Core Interactive SOS Button */}
+                <a 
+                  href="#report" 
+                  className="relative w-24 h-24 bg-gradient-to-br from-red-500 to-[#991b1b] border border-red-400 shadow-[0_0_30px_rgba(220,38,38,0.3)] rounded-full flex flex-col items-center justify-center text-white hover:scale-95 hover:shadow-[0_0_40px_rgba(220,38,38,0.6)] transition-all duration-300 z-20 cursor-pointer active:scale-90 group/btn"
+                >
+                  <span className="text-3xl font-bold tracking-widest drop-shadow-md">SOS</span>
+                  <div className="absolute inset-0 rounded-full bg-white opacity-0 group-hover/btn:opacity-10 transition-opacity duration-300" />
                 </a>
               </div>
-              <p className="text-gray-300 text-sm font-medium text-center">
-                Press to report an immediate emergency
-              </p>
+
+              <div className="flex flex-col items-center gap-1.5 z-10">
+                <p className="text-red-400 text-[12px] font-bold uppercase tracking-[0.2em] drop-shadow-[0_0_8px_rgba(248,113,113,0.5)]">
+                  Emergency Alert
+                </p>
+                <div className="flex items-center gap-2 opacity-70 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-sm">
+                   <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_5px_rgba(239,68,68,1)]" />
+                   <p className="text-[9px] font-mono text-red-300 uppercase tracking-widest">AI Network Online</p>
+                </div>
+              </div>
             </div>
 
-            {/* 2. Real-time Metrics (Replacing fake line chart with operational metrics) */}
-            <div className="bg-[#0f172a]/80 backdrop-blur-md border border-white/5 rounded-xl p-5 flex-1 flex flex-col">
+            {/* 2. Real-time Metrics */}
+            <div className="bg-[#0f172a] border border-[#1e293b] rounded-sm p-5 flex-1 flex flex-col">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wider">City Status</h3>
                 <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
@@ -136,65 +198,81 @@ export default function CitizenPlatform() {
               </div>
             </div>
 
-            {/* ACTUAL LIVE MAP PREVIEW */}
-            <div className="flex-1 bg-[#0f172a] border border-white/10 rounded-xl relative overflow-hidden shadow-2xl flex flex-col h-[600px] min-h-[600px]">
+            {/* INTEGRATED GIS COMMAND INTERFACE */}
+            <div className="flex-1 bg-[#0f172a] border border-[#1e293b] rounded-sm relative overflow-hidden flex flex-col h-[600px] min-h-[600px]">
               
-              {/* MapContainer renders the real Google Maps canvas */}
-              <div className="absolute inset-0 z-0 bg-[#060b14]">
-                <MapContainer mode="tactical">
-                  {(map) => (
-                    <>
-                      {activeLayer === MAP_LAYERS.INCIDENT_PINS && <IncidentPinLayer map={map} />}
-                      {activeLayer === MAP_LAYERS.ACCIDENT_ZONES && <AccidentZoneLayer map={map} />}
-                      {activeLayer === MAP_LAYERS.UNSAFE_ROADS && <UnsafeRoadLayer map={map} />}
-                      {activeLayer === MAP_LAYERS.EMERGENCY_VEHICLES && <EmergencyVehicleLayer map={map} />}
-                      {activeLayer === MAP_LAYERS.RISK_ZONES && <RiskZoneLayer map={map} />}
-                    </>
-                  )}
-                </MapContainer>
-                {/* Crisp map view with only a subtle inner shadow on the edges */}
-                <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_40px_rgba(2,6,23,0.6)]" />
-              </div>
-
-              {/* Map UI Overlay (Top) - Enterprise Style */}
-              <div className="relative z-10 p-4 flex flex-col sm:flex-row justify-between items-start pointer-events-none gap-4">
-                
-                {/* Search Bar (Google/ArcGIS Style) */}
-                <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-lg px-4 py-2.5 w-full max-w-sm shadow-md pointer-events-auto transition-shadow hover:shadow-lg focus-within:ring-2 focus-within:ring-blue-500">
-                  <Search className="h-4 w-4 text-gray-500" />
-                  <input type="text" placeholder="Search location, ward, or incident..." className="bg-transparent border-none text-sm font-medium text-gray-800 placeholder:text-gray-400 focus:outline-none w-full" />
+              {/* Top Command Toolbar */}
+              <div className="bg-[#0b1120] border-b border-[#1e293b] p-2 flex items-center gap-3">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-[#1e293b]/50 border border-[#1e293b] rounded-sm w-[300px] focus-within:border-blue-500/50 transition-colors">
+                  <Search className="h-3.5 w-3.5 text-gray-400" />
+                  <input type="text" placeholder="Search location, wards, hospitals..." className="bg-transparent border-none text-[13px] text-white w-full focus:outline-none placeholder:text-gray-500" />
                 </div>
-                
-                {/* Layer Toggle (Microsoft Fluent Style) */}
-                <div className="flex bg-[#1e293b]/90 backdrop-blur-md p-1 rounded-lg border border-white/10 shadow-lg pointer-events-auto overflow-x-auto">
-                   {LAYER_CONTROLS.map(layer => (
-                      <button
-                        key={layer.id}
-                        onClick={() => setActiveLayer(layer.id)}
-                        className={`px-3 py-1.5 rounded-md flex items-center gap-2 text-xs font-medium transition-colors whitespace-nowrap ${
-                          activeLayer === layer.id 
-                            ? 'bg-blue-500 text-white shadow-sm' 
-                            : 'text-gray-400 hover:text-white hover:bg-white/5'
-                        }`}
-                      >
-                        <layer.icon className="h-3.5 w-3.5" />
-                        <span className="hidden sm:inline">{layer.label}</span>
-                      </button>
-                    ))}
+                <div className="h-4 w-px bg-[#1e293b] hidden sm:block" />
+                <button className="hidden sm:flex bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-sm text-xs font-semibold items-center gap-1.5 transition-colors">
+                  <Navigation className="h-3.5 w-3.5" /> Locate
+                </button>
+                <div className="flex-1" />
+                <div className="flex items-center gap-2 px-3">
+                   <div className="flex items-center gap-1.5 text-[11px] text-gray-400 font-mono"><Clock className="h-3.5 w-3.5" /> LIVE SYNC</div>
                 </div>
               </div>
 
-              {/* Bottom Map Legend (Clean & Minimal) */}
-              <div className="relative z-10 mt-auto p-3 px-5 bg-[#0f172a]/95 backdrop-blur-xl border-t border-white/10 pointer-events-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-                 <div className="flex flex-wrap items-center gap-4 text-xs text-gray-300">
-                    <span className="font-semibold text-white mr-2 border-r border-gray-600 pr-4">{LAYER_CONTROLS.find(l => l.id === activeLayer)?.label}</span>
-                    <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-red-500 shadow-sm" /> Critical</div>
-                    <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-amber-500 shadow-sm" /> Warning</div>
-                    <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-emerald-500 shadow-sm" /> Safe</div>
-                 </div>
-                 <div className="flex items-center gap-2 text-[10px] font-mono text-gray-400 uppercase tracking-widest">
-                   <Clock className="h-3 w-3" /> Live Data Sync
-                 </div>
+              {/* Main Content Area */}
+              <div className="flex-1 flex overflow-hidden">
+                
+                {/* Left GIS Sidebar */}
+                <div className="w-[220px] bg-[#0b1120] border-r border-[#1e293b] flex flex-col z-10 shadow-[4px_0_24px_rgba(0,0,0,0.2)] shrink-0 hidden md:flex">
+                  <div className="p-3 border-b border-[#1e293b] flex items-center justify-between">
+                     <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Map Layers</p>
+                     <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-0.5">
+                    {LAYER_CONTROLS.map(layer => {
+                      const isActive = activeLayer === layer.id;
+                      return (
+                        <button
+                          key={layer.id}
+                          onClick={() => setActiveLayer(layer.id)}
+                          className={`px-3 py-2.5 rounded-sm flex items-center gap-3 text-[12px] font-medium transition-colors ${
+                            isActive
+                              ? 'bg-[#1e293b] text-blue-400 border-l-2 border-blue-500'
+                              : 'text-gray-400 hover:bg-[#1e293b]/50 border-l-2 border-transparent hover:text-gray-200'
+                          }`}
+                        >
+                          <layer.icon className={`h-4 w-4 shrink-0 transition-colors ${isActive ? 'text-blue-400' : 'text-gray-500'}`} />
+                          <span className="truncate">{layer.label}</span>
+                          {isActive && <div className="ml-auto h-1.5 w-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Map Area */}
+                <div className="flex-1 relative bg-[#060b14]">
+                  <MapContainer mode="tactical">
+                    {(map) => (
+                      <>
+                        {activeLayer === MAP_LAYERS.INCIDENT_PINS && <IncidentPinLayer map={map} />}
+                        {activeLayer === MAP_LAYERS.ACCIDENT_ZONES && <AccidentZoneLayer map={map} />}
+                        {activeLayer === MAP_LAYERS.UNSAFE_ROADS && <UnsafeRoadLayer map={map} />}
+                        {activeLayer === MAP_LAYERS.EMERGENCY_VEHICLES && <EmergencyVehicleLayer map={map} />}
+                        {activeLayer === MAP_LAYERS.RISK_ZONES && <RiskZoneLayer map={map} />}
+                      </>
+                    )}
+                  </MapContainer>
+                  {/* Subtle inner shadow for edge blending only */}
+                  <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_40px_rgba(2,6,23,0.6)]" />
+                </div>
+              </div>
+
+              {/* Bottom Legend */}
+              <div className="bg-[#0b1120] border-t border-[#1e293b] p-2 px-4 flex flex-wrap items-center gap-6 text-[11px] font-medium text-gray-400 z-10">
+                 <span className="text-white font-semibold">{LAYER_CONTROLS.find(l => l.id === activeLayer)?.label}</span>
+                 <div className="h-3 w-px bg-[#1e293b] hidden sm:block" />
+                 <div className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-red-500" /> Critical</div>
+                 <div className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-amber-500" /> Warning</div>
+                 <div className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-emerald-500" /> Safe</div>
               </div>
             </div>
           </div>
@@ -203,7 +281,7 @@ export default function CitizenPlatform() {
           <div className="w-full xl:w-80 flex flex-col gap-4 shrink-0 mt-8 xl:mt-14">
             
             {/* Datadog style summary header */}
-            <div className="bg-[#0f172a]/80 backdrop-blur-md border border-white/5 rounded-xl p-5 shadow-lg">
+            <div className="bg-[#0f172a] border border-[#1e293b] rounded-sm p-5">
               <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Platform Overview</h3>
               <p className="text-sm text-gray-300">Aggregated safety metrics across all active city zones over the last 24 hours.</p>
             </div>
@@ -216,7 +294,7 @@ export default function CitizenPlatform() {
                 { label: 'Accidents Logged', value: '234', trend: '-4%', color: 'text-amber-400', icon: MapIcon },
                 { label: 'Active Alerts', value: '89', trend: '+5%', color: 'text-emerald-400', icon: Bell },
               ].map((stat, i) => (
-                <div key={i} className="bg-[#0f172a]/80 backdrop-blur-md border border-white/5 rounded-xl p-4 flex flex-col gap-3 hover:bg-white/5 transition-colors group cursor-default shadow-sm">
+                <div key={i} className="bg-[#0f172a] border border-[#1e293b] rounded-sm p-4 flex flex-col gap-3 hover:bg-[#1e293b]/30 transition-colors group cursor-default">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <stat.icon className={`h-4 w-4 ${stat.color} opacity-80`} />
