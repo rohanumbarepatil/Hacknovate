@@ -33,6 +33,19 @@ const useNotificationStore = create((set) => ({
     unreadCount: 0,
   })),
 
+  markCategoryAsRead: (category) => set((state) => {
+    const unreadInCategory = state.notifications.filter(
+      (n) => !n.read && n.category === category
+    ).length;
+
+    return {
+      notifications: state.notifications.map((n) =>
+        n.category === category ? { ...n, read: true } : n
+      ),
+      unreadCount: Math.max(0, state.unreadCount - unreadInCategory),
+    };
+  }),
+
   clearNotifications: () => set({
     notifications: [],
     unreadCount: 0,

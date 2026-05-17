@@ -34,6 +34,7 @@ export const API_ENDPOINTS = {
   SOS: {
     BASE: `${BASE}/sos`,
     ACTIVE: `${BASE}/sos/active`,
+    UPLOAD_AUDIO: `${BASE}/sos/upload-audio`,
     ACKNOWLEDGE: (id) => `${BASE}/sos/${id}/acknowledge`,
     RESOLVE: (id) => `${BASE}/sos/${id}/resolve`,
   },

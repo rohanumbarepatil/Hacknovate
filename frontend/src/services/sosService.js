@@ -9,12 +9,33 @@ const sosService = {
   /**
    * Trigger an SOS emergency alert
    */
-  async trigger(location) {
+  async trigger(location, metadata = {}) {
     const res = await api.post(API_ENDPOINTS.SOS.BASE, {
       lat: location.lat,
       lng: location.lng,
+      ...metadata,
     });
-    return res.data;
+    return res.data?.data || res.data;
+  },
+
+  /**
+   * Upload SOS audio file to backend fallback storage
+   */
+  async uploadAudio(audioBlob, firebaseSosId) {
+    const formData = new FormData();
+    formData.append('audio', audioBlob, `${firebaseSosId || Date.now()}.webm`);
+    if (firebaseSosId) {
+      formData.append('firebaseSosId', firebaseSosId);
+    }
+
+    const res = await api.post(API_ENDPOINTS.SOS.UPLOAD_AUDIO, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 30000,
+    });
+
+    return res.data?.data || res.data;
   },
 
   /**

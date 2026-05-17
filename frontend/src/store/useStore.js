@@ -24,10 +24,46 @@ const useStore = create((set) => ({
     complaints: [...state.complaints, complaint] 
   })),
   
-  setSosEvents: (events) => set({ sosEvents: events }),
-  addSosEvent: (event) => set((state) => ({ 
-    sosEvents: [...state.sosEvents, event] 
+  setSosEvents: (events) => set({
+    sosEvents: [...events].sort((a, b) => {
+      const aTs = new Date(a.updatedAt || a.timestamp || a.createdAt || a.created_at || 0).getTime();
+      const bTs = new Date(b.updatedAt || b.timestamp || b.createdAt || b.created_at || 0).getTime();
+      return bTs - aTs;
+    })
+  }),
+  addSosEvent: (event) => set((state) => ({
+    sosEvents: [event, ...state.sosEvents]
   })),
+  upsertSosEvent: (event) => set((state) => {
+    const eventId = event.id || event.sosId;
+    const normalized = {
+      ...event,
+      id: eventId || `sos_${Date.now()}`,
+    };
+
+    const existingIndex = state.sosEvents.findIndex(
+      (item) => (item.id || item.sosId) === normalized.id
+    );
+
+    let updatedEvents;
+    if (existingIndex === -1) {
+      updatedEvents = [normalized, ...state.sosEvents];
+    } else {
+      updatedEvents = [...state.sosEvents];
+      updatedEvents[existingIndex] = {
+        ...updatedEvents[existingIndex],
+        ...normalized,
+      };
+    }
+
+    updatedEvents.sort((a, b) => {
+      const aTs = new Date(a.updatedAt || a.timestamp || a.createdAt || a.created_at || 0).getTime();
+      const bTs = new Date(b.updatedAt || b.timestamp || b.createdAt || b.created_at || 0).getTime();
+      return bTs - aTs;
+    });
+
+    return { sosEvents: updatedEvents };
+  }),
   
   setRiskScores: (scores) => set({ riskScores: scores }),
   updateRiskScore: (wardId, score) => set((state) => ({

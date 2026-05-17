@@ -33,9 +33,11 @@ export function setupSocketHandlers(io) {
 
     // Handle SOS alerts triggered via socket (optional fallback)
     socket.on(SOCKET_EVENTS.SOS_ALERT, (data) => {
-      logger.error(`Socket SOS alert: ${JSON.id}`);
+      logger.error(`Socket SOS alert: ${JSON.stringify(data)}`);
       // Re-broadcast to authority room
       socket.to('authority_room').emit(SOCKET_EVENTS.SOS_NEW, data);
+      socket.to('police_room').emit(SOCKET_EVENTS.SOS_NEW, data);
+      socket.broadcast.emit(SOCKET_EVENTS.SOS_ALERT, data);
     });
 
     socket.on('disconnect', () => {

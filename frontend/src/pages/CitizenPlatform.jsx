@@ -192,6 +192,7 @@ import RiskZoneLayer from '@/maps/layers/RiskZoneLayer';
 
 // Citizen Modules
 import ComplaintForm from '@/components/citizen/ComplaintForm';
+import SOSEmergencyConsole from '@/components/sos/SOSEmergencyConsole';
 
 // Stores
 import useMapStore from '@/store/useMapStore';
@@ -369,71 +370,7 @@ export default function CitizenPlatform() {
                 <span className="h-px w-8 bg-gray-700" />
               </h3>
               
-              <div className="relative w-44 h-44 flex items-center justify-center mb-6 z-10">
-                {/* Radar Crosshairs */}
-                <div className="absolute inset-0 pointer-events-none opacity-20">
-                  <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-red-500 -translate-x-1/2" />
-                  <div className="absolute top-1/2 left-0 right-0 h-[1px] bg-red-500 -translate-y-1/2" />
-                </div>
-
-                {/* Rotating Outer Tactical Rings */}
-                <motion.svg 
-                  className="absolute inset-0 w-full h-full text-red-500"
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
-                  viewBox="0 0 100 100"
-                >
-                  {/* Outer thin dashed ring */}
-                  <circle cx="50" cy="50" r="48" fill="none" stroke="currentColor" strokeWidth="0.5" strokeDasharray="2 4" className="opacity-40" />
-                  
-                  {/* Main thick segmented ring (matches image style) */}
-                  <circle 
-                    cx="50" 
-                    cy="50" 
-                    r="43" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="3.5" 
-                    strokeDasharray="125 10" 
-                    strokeLinecap="round"
-                    className="opacity-90 drop-shadow-[0_0_8px_rgba(239,68,68,0.6)]" 
-                  />
-                  
-                  {/* Inner technical thin ring */}
-                  <circle cx="50" cy="50" r="38" fill="none" stroke="currentColor" strokeWidth="0.75" className="opacity-30" />
-                  
-                  {/* Precision markers */}
-                  <path d="M 50 2 L 50 8 M 50 92 L 50 98 M 2 50 L 8 50 M 92 50 L 98 50" stroke="currentColor" strokeWidth="1.5" className="opacity-60" />
-                </motion.svg>
-
-                {/* Middle Pulse Ring */}
-                <div className="absolute inset-4 rounded-full border border-red-500/20 animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite]" />
-
-                {/* Core Button Base */}
-                <div className="absolute inset-6 rounded-full border border-red-500/30 bg-[#060b14] flex items-center justify-center shadow-[inset_0_0_20px_rgba(220,38,38,0.1)]">
-                  {/* Subtle inner glow */}
-                  <div className="absolute inset-0 rounded-full bg-red-500/10 blur-xl" />
-                </div>
-
-                {/* Core Interactive SOS Button */}
-                <a 
-                  href="#report" 
-                  className="relative w-24 h-24 bg-gradient-to-br from-red-500 to-[#991b1b] border border-red-400 shadow-[0_0_30px_rgba(220,38,38,0.3)] rounded-full flex flex-col items-center justify-center text-white hover:scale-95 hover:shadow-[0_0_40px_rgba(220,38,38,0.6)] transition-all duration-300 z-20 cursor-pointer active:scale-90 group/btn"
-                >
-                  <span className="text-3xl font-bold tracking-widest drop-shadow-md">SOS</span>
-                  <div className="absolute inset-0 rounded-full bg-white opacity-0 group-hover/btn:opacity-10 transition-opacity duration-300" />
-                </a>
-              </div>
-
-              <div className="flex flex-col items-center gap-1.5 z-10">
-                <p className="text-red-400 text-[12px] font-bold uppercase tracking-[0.2em] drop-shadow-[0_0_8px_rgba(248,113,113,0.5)]">
-                  Emergency Alert
-                </p>
-                <div className="flex items-center gap-2 opacity-70 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-sm">
-                   <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_5px_rgba(239,68,68,1)]" />
-                   <p className="text-[9px] font-mono text-red-300 uppercase tracking-widest">AI Network Online</p>
-                </div>
-              </div>
+              <SOSEmergencyConsole />
             </div>
 
             {/* 2. Real-time Metrics */}

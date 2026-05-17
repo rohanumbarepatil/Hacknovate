@@ -3,6 +3,9 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import logger from './utils/logger.js';
 import errorHandler from './middleware/errorHandler.js';
 import { setupSocketHandlers } from './socket/socketHandlers.js';
@@ -12,6 +15,11 @@ dotenv.config();
 
 const app = express();
 const httpServer = createServer(app);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const uploadsDir = path.resolve(__dirname, '../uploads');
+
+fs.mkdirSync(uploadsDir, { recursive: true });
 
 // Socket.io initialization
 const io = new Server(httpServer, {
@@ -24,7 +32,7 @@ const io = new Server(httpServer, {
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use('/uploads', express.static('uploads'));
+app.use('/uploads', express.static(uploadsDir));
 
 // Global logger for requests
 app.use((req, res, next) => {
