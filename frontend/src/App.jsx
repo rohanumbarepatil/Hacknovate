@@ -9,6 +9,18 @@ import { useSocket } from '@/hooks/useSocket';
 // Pages
 import CitizenPlatform from '@/pages/CitizenPlatform';
 import AuthorityView from '@/pages/AuthorityView';
+import AuthorityLogin from '@/pages/AuthorityLogin';
+
+// Protected Route Wrapper
+const ProtectedAuthorityRoute = ({ children }) => {
+  const { isAuthenticated, userRole } = useAuthStore();
+  
+  if (!isAuthenticated || userRole !== 'authority') {
+    return <Navigate to="/authority-login" replace />;
+  }
+  
+  return children;
+};
 
 function App() {
   useSocket(); // Initialize real-time listeners
@@ -24,8 +36,6 @@ function App() {
     
     if (storedUser && storedRole) {
       login(JSON.parse(storedUser), storedRole);
-    } else {
-      login({ uid: 'demo_user', email: 'user@demo.com' }, 'citizen');
     }
   }, [login]);
 
@@ -45,7 +55,12 @@ function App() {
         <Routes>
           {/* Main Citizen Platform acts as Root */}
           <Route path="/" element={<CitizenPlatform />} />
-          <Route path="/authority/*" element={<AuthorityView />} />
+          <Route path="/authority-login" element={<AuthorityLogin />} />
+          <Route path="/authority/*" element={
+            <ProtectedAuthorityRoute>
+              <AuthorityView />
+            </ProtectedAuthorityRoute>
+          } />
           {/* Redirect old citizen routes to home */}
           <Route path="/citizen/*" element={<Navigate to="/" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />

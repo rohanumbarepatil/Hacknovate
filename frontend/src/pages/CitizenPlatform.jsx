@@ -395,7 +395,7 @@ export default function CitizenPlatform() {
 
           {/* Right Action */}
           <div className="flex items-center gap-4">
-            <Link to="/authority">
+            <Link to="/authority-login">
               <button className="px-5 py-2.5 rounded-lg bg-[#0f172a] text-gray-300 border border-[#1e293b] hover:border-blue-500/50 hover:text-white hover:bg-[#1e293b]/60 hover:shadow-[0_4px_20px_rgba(59,130,246,0.15)] text-[13px] font-semibold transition-all duration-300 flex items-center gap-2.5 group">
                 <Activity className="h-3.5 w-3.5 text-blue-500 group-hover:text-blue-400 transition-colors" />
                 Authority Access
