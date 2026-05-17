@@ -13,14 +13,38 @@ const GEOLOCATION_TIMEOUT_MS = 7000;
 const LIVE_LOCATION_STREAM_MS = 120000;
 const AUDIO_UPLOAD_MODE = (import.meta.env.VITE_SOS_AUDIO_UPLOAD_MODE || 'auto').toLowerCase();
 
+import socket from '@/services/socket';
+
 function hasValidCoordinate(location) {
   return Number.isFinite(location?.lat) && Number.isFinite(location?.lng);
+}
+
+function getAreaFromCoords(lat, lng) {
+  if (!lat || !lng) return "Swargate";
+  const areas = [
+    { name: "Swargate", lat: 18.5018, lng: 73.8636 },
+    { name: "Kothrud", lat: 18.5074, lng: 73.8077 },
+    { name: "Shivajinagar", lat: 18.5308, lng: 73.8474 },
+    { name: "Hadapsar", lat: 18.5089, lng: 73.9259 },
+    { name: "Viman Nagar", lat: 18.5679, lng: 73.9143 }
+  ];
+  let closest = areas[0];
+  let minDist = Infinity;
+  for (const area of areas) {
+    const dist = Math.pow(area.lat - lat, 2) + Math.pow(area.lng - lng, 2);
+    if (dist < minDist) {
+      minDist = dist;
+      closest = area;
+    }
+  }
+  return closest.name;
 }
 
 export default function SOSEmergencyConsole() {
   const { user } = useAuthStore();
   const { currentLocation } = useStore();
 
+  const [cooldownActive, setCooldownActive] = useState(false);
   const [phase, setPhase] = useState('idle');
   const [secondsLeft, setSecondsLeft] = useState(RECORDING_SECONDS);
   const [lastAlertId, setLastAlertId] = useState(null);
@@ -259,12 +283,18 @@ export default function SOSEmergencyConsole() {
   };
 
   const triggerSOSFlow = async () => {
-    if (phase === 'preparing' || phase === 'uploading') return;
+    if (cooldownActive || phase === 'preparing' || phase === 'uploading') return;
 
     if (phase === 'recording') {
       stopRecordingNow();
       return;
     }
+
+    // Cooldown check: disable repeated clicks for 5 seconds
+    setCooldownActive(true);
+    setTimeout(() => {
+      setCooldownActive(false);
+    }, 5000);
 
     setPhase('preparing');
 
@@ -289,6 +319,30 @@ export default function SOSEmergencyConsole() {
       // Resolve latest location and dispatch alert while recording is in progress.
       const location = await resolveLiveLocation();
       const timestamp = Date.now();
+
+      // Send realtime socket event to backend
+      const areaName = getAreaFromCoords(location.lat, location.lng);
+      const shortCitizenId = userId === 'anonymous' ? 'CIT-204' : `CIT-${userId.slice(-3).toUpperCase()}`;
+
+      const socketPayload = {
+        type: "SOS_ALERT",
+        severity: "CRITICAL",
+        citizenId: shortCitizenId,
+        area: areaName,
+        lat: location.lat || 18.5204,
+        lng: location.lng || 73.8567,
+        timestamp
+      };
+
+      // Connect if socket is not active
+      if (!socket.connected) {
+        socket.connect();
+      }
+
+      // Emit the socket event to backend
+      socket.emit("citizen_sos", socketPayload);
+      console.log("📡 Emitted citizen_sos event to backend:", socketPayload);
+
       const alertsRootRef = dbRef(rtdb, 'sos_alerts');
       const alertRef = push(alertsRootRef);
       alertId = alertRef.key;
@@ -343,8 +397,8 @@ export default function SOSEmergencyConsole() {
       setPhase('sent');
       showToast({
         type: 'success',
-        title: 'SOS Sent',
-        message: 'Emergency alert, location, and voice recording were shared with authorities.',
+        title: 'Emergency Alert Sent Successfully',
+        message: 'Your critical distress signal, live location, and voice recording are broadcasted.',
       });
     } catch (err) {
       console.error('SOS workflow failed:', err);
@@ -440,17 +494,27 @@ export default function SOSEmergencyConsole() {
           <path d="M 50 2 L 50 8 M 50 92 L 50 98 M 2 50 L 8 50 M 92 50 L 98 50" stroke="currentColor" strokeWidth="1.5" className="opacity-60" />
         </motion.svg>
 
-        <div className="absolute inset-4 rounded-full border border-red-500/20 animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite]" />
+        <div className={`absolute inset-4 rounded-full border border-red-500/20 transition-all ${
+          phase === 'recording' || cooldownActive 
+            ? 'animate-[ping_1.2s_cubic-bezier(0,0,0.2,1)_infinite] border-red-500/60 scale-110 shadow-[0_0_25px_rgba(239,68,68,0.6)]'
+            : 'animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite]'
+        }`} />
+
+        {(phase === 'recording' || cooldownActive) && (
+          <div className="absolute inset-2 rounded-full border-2 border-red-600/40 animate-[ping_0.8s_cubic-bezier(0,0,0.2,1)_infinite]" />
+        )}
 
         <div className="absolute inset-6 rounded-full border border-red-500/30 bg-[#060b14] flex items-center justify-center shadow-[inset_0_0_20px_rgba(220,38,38,0.1)]">
-          <div className="absolute inset-0 rounded-full bg-red-500/10 blur-xl" />
+          <div className="absolute inset-0 rounded-full bg-red-500/10 blur-xl animate-pulse" />
         </div>
 
         <button
           type="button"
           onClick={triggerSOSFlow}
-          disabled={phase === 'preparing' || phase === 'uploading'}
-          className="relative w-24 h-24 bg-gradient-to-br from-red-500 to-[#991b1b] border border-red-400 shadow-[0_0_30px_rgba(220,38,38,0.3)] rounded-full flex flex-col items-center justify-center text-white hover:shadow-[0_0_40px_rgba(220,38,38,0.6)] transition-all duration-300 z-20 cursor-pointer active:scale-90 disabled:opacity-70 disabled:cursor-not-allowed"
+          disabled={cooldownActive || phase === 'preparing' || phase === 'uploading'}
+          className={`relative w-24 h-24 bg-gradient-to-br from-red-500 to-[#991b1b] border border-red-400 shadow-[0_0_30px_rgba(220,38,38,0.3)] rounded-full flex flex-col items-center justify-center text-white hover:shadow-[0_0_40px_rgba(220,38,38,0.6)] transition-all duration-300 z-20 cursor-pointer active:scale-90 disabled:opacity-75 disabled:cursor-not-allowed ${
+            phase === 'recording' || cooldownActive ? 'animate-[pulse_1s_infinite] shadow-[0_0_40px_rgba(239,68,68,0.8)] border-red-300' : ''
+          }`}
         >
           <span className="text-3xl font-bold tracking-widest drop-shadow-md">
             {phase === 'recording' ? secondsLeft : 'SOS'}

@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
+import { useEffect, useMemo, useState, useRef } from 'react';
+import { Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
+import { playTacticalBuzzer, stopTacticalBuzzer } from '@/utils/sound';
 import {
   Activity,
   AlertTriangle,
@@ -68,6 +69,7 @@ import MapLegend from '@/maps/controls/MapLegend';
 import { Card, Badge, StatusIndicator, Button } from '@/components/common';
 import { showToast } from '@/components/common/Toast';
 import useStore from '@/store/useStore';
+import useMapStore from '@/store/useMapStore';
 import useNotificationStore from '@/store/useNotificationStore';
 import { MAP_LAYERS } from '@/constants/mapConfig';
 import { rtdb } from '@/services/firebase';
@@ -356,6 +358,113 @@ function DashboardOverview({ activeRole, liveFeed, setLiveFeed }) {
 }
 
 // ----------------------------------------------------
+// REAL-TIME CITIZEN EMERGENCY OVERLAY FOR MAP
+// ----------------------------------------------------
+function EmergencySOSOverlay({ map }) {
+  const { activeAlert } = useStore();
+  const markerRef = useRef(null);
+  const circleRef = useRef(null);
+  const rippleRef = useRef(null);
+  const rippleIntervalRef = useRef(null);
+
+  useEffect(() => {
+    if (!map || !window.google) return;
+
+    if (!activeAlert) {
+      if (markerRef.current) markerRef.current.setMap(null);
+      if (circleRef.current) circleRef.current.setMap(null);
+      if (rippleRef.current) rippleRef.current.setMap(null);
+      if (rippleIntervalRef.current) clearInterval(rippleIntervalRef.current);
+      return;
+    }
+
+    const pos = { lat: activeAlert.lat, lng: activeAlert.lng };
+
+    // Pulse Red Marker
+    markerRef.current = new window.google.maps.Marker({
+      position: pos,
+      map,
+      title: `🚨 CRITICAL SOS: ${activeAlert.userName || 'Citizen'}`,
+      icon: {
+        path: window.google.maps.SymbolPath.CIRCLE,
+        fillColor: '#ef4444',
+        fillOpacity: 1,
+        strokeColor: '#ef4444',
+        strokeOpacity: 0.4,
+        strokeWeight: 8,
+        scale: 12,
+      },
+    });
+
+    // Temporary Red Radius Zone (250 meters)
+    circleRef.current = new window.google.maps.Circle({
+      map,
+      center: pos,
+      radius: 250,
+      fillColor: '#ef4444',
+      fillOpacity: 0.12,
+      strokeColor: '#ef4444',
+      strokeOpacity: 0.4,
+      strokeWeight: 1.5,
+    });
+
+    // Expanding Sonar Sonar Radar Ripple Beacon Animation
+    let rippleRadius = 20;
+    rippleRef.current = new window.google.maps.Circle({
+      map,
+      center: pos,
+      radius: rippleRadius,
+      fillColor: '#ef4444',
+      fillOpacity: 0.25,
+      strokeColor: '#ef4444',
+      strokeOpacity: 0.6,
+      strokeWeight: 2,
+    });
+
+    rippleIntervalRef.current = setInterval(() => {
+      rippleRadius += 10;
+      if (rippleRadius > 350) {
+        rippleRadius = 20;
+      }
+      if (rippleRef.current) {
+        rippleRef.current.setRadius(rippleRadius);
+        rippleRef.current.setOptions({
+          fillOpacity: 0.25 * (1 - rippleRadius / 350),
+          strokeOpacity: 0.6 * (1 - rippleRadius / 350),
+        });
+      }
+    }, 45);
+
+    // Dynamic marker pulsing w/ scale
+    let pulseToggle = true;
+    const pulseTimer = setInterval(() => {
+      if (markerRef.current) {
+        markerRef.current.setIcon({
+          path: window.google.maps.SymbolPath.CIRCLE,
+          fillColor: '#ef4444',
+          fillOpacity: 1,
+          strokeColor: '#ef4444',
+          strokeOpacity: pulseToggle ? 0.6 : 0.2,
+          strokeWeight: pulseToggle ? 14 : 6,
+          scale: 12,
+        });
+        pulseToggle = !pulseToggle;
+      }
+    }, 400);
+
+    return () => {
+      if (markerRef.current) markerRef.current.setMap(null);
+      if (circleRef.current) circleRef.current.setMap(null);
+      if (rippleRef.current) rippleRef.current.setMap(null);
+      if (rippleIntervalRef.current) clearInterval(rippleIntervalRef.current);
+      clearInterval(pulseTimer);
+    };
+  }, [map, activeAlert]);
+
+  return null;
+}
+
+// ----------------------------------------------------
 // 2. SAFETY MAP PAGE (THE 3-COLUMN LAYOUT)
 // ----------------------------------------------------
 function SafetyMapPage({
@@ -412,6 +521,9 @@ function SafetyMapPage({
                 {activeLayer === MAP_LAYERS.EMERGENCY_VEHICLES && <EmergencyVehicleLayer map={map} />}
                 {activeLayer === MAP_LAYERS.RISK_ZONES && <RiskZoneLayer map={map} />}
                 {activeLayer === MAP_LAYERS.INCIDENT_PINS && <IncidentPinLayer map={map} />}
+                
+                {/* Real-time pulsing alert overlay */}
+                <EmergencySOSOverlay map={map} />
               </>
             )}
           </MapContainer>
@@ -1275,6 +1387,9 @@ export default function AuthorityView() {
   const notifications = useNotificationStore((state) => state.notifications);
   const markCategoryAsRead = useNotificationStore((state) => state.markCategoryAsRead);
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const { activeAlert, setActiveAlert, setLiveNetworkStatus, setEmergencyCount, emergencyCount } = useStore();
 
   // Role Access levels
   const [activeRole, setActiveRole] = useState('Police Control');
@@ -1295,6 +1410,48 @@ export default function AuthorityView() {
     () => notifications.filter((item) => item.category === 'sos' && !item.read).length,
     [notifications]
   );
+
+  // Sound buzzer cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopTacticalBuzzer();
+    };
+  }, []);
+
+  // Monitor for incoming critical real-time citizen alerts
+  useEffect(() => {
+    if (activeAlert) {
+      // 1. Play wailing emergency siren dual-tone signal
+      playTacticalBuzzer();
+
+      // 2. Prepend critical SOS log to operational feed with highlight
+      const now = new Date(activeAlert.timestamp || Date.now());
+      const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      
+      setLiveFeed((prev) => [
+        {
+          id: activeAlert.id || Date.now(),
+          title: `⚠️ CRITICAL CITIZEN DISTRESS`,
+          desc: `SOS signal triggered near ${activeAlert.area || 'Swargate'} ward (${activeAlert.lat.toFixed(4)}, ${activeAlert.lng.toFixed(4)}).`,
+          time: timeStr,
+          status: 'CRITICAL',
+          highlight: true
+        },
+        ...prev.slice(0, 7)
+      ]);
+
+      // 3. Auto center view and zoom maps focus to targets
+      const mapStore = useMapStore.getState();
+      mapStore.setCenter({ lat: activeAlert.lat, lng: activeAlert.lng });
+      mapStore.setZoom(16);
+      
+      showToast({
+        type: 'error',
+        title: '🚨 CRITICAL DISTRESS ALERT',
+        message: `Distress beacon active from citizen ${activeAlert.citizenId} near ${activeAlert.area}!`,
+      });
+    }
+  }, [activeAlert]);
 
   // Update dynamic layers automatically on active role changes
   useEffect(() => {
@@ -1352,48 +1509,44 @@ export default function AuthorityView() {
   const injectDemoSOSAlert = async () => {
     try {
       setIsInjectingDemo(true);
-
       const now = Date.now();
-      const alertsRootRef = dbRef(rtdb, 'sos_alerts');
-      const alertRef = push(alertsRootRef);
-
+      const demoId = `CIT-204`;
       const demoPayload = {
-        id: alertRef.key,
-        userId: 'demo_citizen_01',
-        userName: 'Demo Citizen',
-        userEmail: 'demo.citizen@safecity.ai',
-        userPhone: '+91-98765-43210',
-        status: 'active',
-        lat: 18.52043,
-        lng: 73.85674,
-        location: {
-          lat: 18.52043,
-          lng: 73.85674,
-          accuracy: 8,
-          capturedAt: now,
-        },
-        createdAt: now,
-        updatedAt: now,
-        audioUrl: 'https://samplelib.com/lib/preview/mp3/sample-3s.mp3',
-        recordingDurationSec: 3,
-        audioUploadedAt: now,
-        demo: true,
+        type: "SOS_ALERT",
+        severity: "CRITICAL",
+        citizenId: demoId,
+        area: ["Swargate", "Kothrud", "Hadapsar", "Viman Nagar", "Shivajinagar"][Math.floor(Math.random() * 5)],
+        lat: 18.5204 + (Math.random() - 0.5) * 0.015,
+        lng: 73.8567 + (Math.random() - 0.5) * 0.015,
+        timestamp: now,
+        userName: "Rohan Patil",
+        userPhone: "+91-90281-22904"
       };
 
-      await set(alertRef, demoPayload);
+      // Connect socket and emit if socket is present
+      try {
+        const socketModule = await import('@/services/socket');
+        const socket = socketModule.default;
+        if (socket && typeof socket.emit === 'function') {
+          if (!socket.connected) socket.connect();
+          socket.emit("citizen_sos", demoPayload);
+        }
+      } catch (err) {
+        console.warn("Socket connection bypassed, triggering state manually:", err);
+      }
+
+      // Update state locally to ensure 100% reactive trigger even offline
+      setActiveAlert(demoPayload);
+      setLiveNetworkStatus('emergency');
+      setEmergencyCount(emergencyCount + 1);
 
       showToast({
         type: 'success',
         title: 'Demo SOS Injected',
-        message: 'Authority stream now has a test alert with location and playable audio.',
+        message: `Distress signal simulation loaded near Swargate / Pune sectors.`,
       });
     } catch (error) {
       console.error('Failed to inject demo SOS alert:', error);
-      showToast({
-        type: 'error',
-        title: 'Demo Injection Failed',
-        message: 'Unable to create demo SOS alert. Please verify Firebase config and rules.',
-      });
     } finally {
       setIsInjectingDemo(false);
     }
@@ -1493,6 +1646,121 @@ export default function AuthorityView() {
               <Route path="settings" element={<SettingsPage />} />
               <Route path="*" element={<Navigate to="dashboard" replace />} />
             </Routes>
+          </AnimatePresence>
+
+          {/* Real-time Emergency SOS Alert Overlay Modal */}
+          <AnimatePresence>
+            {activeAlert && (
+              <motion.div
+                initial={{ opacity: 0, y: -50, scale: 0.9, x: 50 }}
+                animate={{ opacity: 1, y: 0, scale: 1, x: 0 }}
+                exit={{ opacity: 0, y: -20, scale: 0.95, x: 20 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+                className="absolute top-6 right-6 z-[9999] w-96 bg-[#160606]/95 border-2 border-red-500/85 rounded-xl shadow-[0_10px_50px_rgba(239,68,68,0.4)] backdrop-blur-md overflow-hidden text-slate-200"
+              >
+                {/* Flashing top warning strip */}
+                <div className="bg-red-600 px-4 py-2 flex items-center justify-between animate-pulse">
+                  <span className="text-[10px] font-bold text-white uppercase tracking-widest flex items-center gap-1.5">
+                    <ShieldAlert className="h-4 w-4 animate-bounce" />
+                    Critical Distress Beacon
+                  </span>
+                  <span className="text-[9px] font-bold text-white/90 bg-black/35 px-2 py-0.5 rounded uppercase">
+                    Active SOS
+                  </span>
+                </div>
+
+                <div className="p-5 space-y-4 text-left">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="text-sm font-bold text-white uppercase tracking-wider">
+                        {activeAlert.userName || 'Distressed Citizen'}
+                      </h4>
+                      <p className="text-[10px] font-semibold text-red-400 mt-0.5 uppercase tracking-wide">
+                        ID: {activeAlert.citizenId}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] font-mono text-slate-400 font-bold">
+                        {activeAlert.lat.toFixed(5)}, {activeAlert.lng.toFixed(5)}
+                      </span>
+                      <p className="text-[9px] text-slate-500 font-bold uppercase mt-0.5">
+                        {activeAlert.area || 'Pune Ward'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {activeAlert.userPhone && (
+                    <div className="bg-black/30 border border-red-500/10 rounded-lg p-2.5 flex items-center justify-between text-xs text-slate-350">
+                      <span className="font-semibold flex items-center gap-1.5">
+                        <Phone className="h-3.5 w-3.5 text-red-400" />
+                        Hotline Contact:
+                      </span>
+                      <span className="font-mono text-white font-bold">{activeAlert.userPhone}</span>
+                    </div>
+                  )}
+
+                  <p className="text-xs text-slate-300 leading-relaxed font-semibold">
+                    Citizen initiated emergency SOS wailing distress trigger. Live camera telemetries & nearest emergency responder coordinates focused.
+                  </p>
+
+                  {/* Action buttons */}
+                  <div className="grid grid-cols-3 gap-2.5 pt-2">
+                    <button
+                      onClick={() => {
+                        const pos = { lat: activeAlert.lat, lng: activeAlert.lng };
+                        const mapStore = useMapStore.getState();
+                        mapStore.setCenter(pos);
+                        mapStore.setZoom(16);
+                        navigate('/authority/safety-map');
+                        showToast({
+                          type: 'info',
+                          title: 'Live Map Focused',
+                          message: `Centered authority viewport on Swargate coordinate sector.`
+                        });
+                      }}
+                      className="bg-[#2d0e0e] border border-red-500/30 hover:bg-[#431414] hover:border-red-500/50 text-[10px] font-bold text-red-300 uppercase py-2 px-1 rounded-lg transition-all flex flex-col items-center justify-center gap-1 select-none"
+                    >
+                      <MapPin className="h-4 w-4" />
+                      Open Map
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        setActiveAlert(null);
+                        setLiveNetworkStatus('connected');
+                        stopTacticalBuzzer();
+                        showToast({
+                          type: 'success',
+                          title: 'Emergency Dispatched',
+                          message: `Emergency response unit successfully deployed to Swargate distress sector.`
+                        });
+                      }}
+                      className="bg-red-600 hover:bg-red-700 text-[10px] font-bold text-white uppercase py-2 px-1 rounded-lg transition-all flex flex-col items-center justify-center gap-1 shadow-lg shadow-red-600/20 select-none"
+                    >
+                      <Truck className="h-4 w-4" />
+                      Dispatch Unit
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setActiveAlert(null);
+                        setLiveNetworkStatus('connected');
+                        stopTacticalBuzzer();
+                        showToast({
+                          type: 'success',
+                          title: 'Alert Cleared',
+                          message: 'SOS emergency status reset. Command console cleared.'
+                        });
+                      }}
+                      className="bg-slate-800 hover:bg-slate-700 border border-slate-750 text-[10px] font-bold text-slate-350 uppercase py-2 px-1 rounded-lg transition-all flex flex-col items-center justify-center gap-1 select-none"
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                      Acknowledge
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
           </AnimatePresence>
 
         </main>

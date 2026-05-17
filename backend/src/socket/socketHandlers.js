@@ -40,6 +40,18 @@ export function setupSocketHandlers(io) {
       socket.broadcast.emit(SOCKET_EVENTS.SOS_ALERT, data);
     });
 
+    // Handle citizen SOS real-time events
+    socket.on('citizen_sos', (data) => {
+      logger.socket(`🚨 Real-time SOS Alert received on Socket: ${JSON.stringify(data)}`);
+      // Broadcast immediately to all connected clients (including Authority Command Centers)
+      io.emit('authority_receive_sos', data);
+      
+      // Also broadcast to existing rooms for backward compatibility
+      socket.to('authority_room').emit(SOCKET_EVENTS.SOS_NEW, data);
+      socket.to('police_room').emit(SOCKET_EVENTS.SOS_NEW, data);
+      socket.broadcast.emit(SOCKET_EVENTS.SOS_ALERT, data);
+    });
+
     socket.on('disconnect', () => {
       logger.socket(`Client disconnected: ${socket.id}`);
     });

@@ -115,6 +115,30 @@ export const useSocket = () => {
     socket.on('sos:new', handleSOSSocket);
     socket.on('sos:alert', handleSOSSocket);
 
+    // Authority Command Center Real-time SOS Receiver
+    socket.on('authority_receive_sos', (payload) => {
+      console.log("🚨 Authority socket received real-time SOS alert:", payload);
+      const normalized = {
+        ...normalizeSOSEvent(payload),
+        area: payload.area || "Swargate",
+        severity: payload.severity || "CRITICAL",
+        citizenId: payload.citizenId || "CIT-204"
+      };
+      
+      const store = useStore.getState();
+      store.upsertSosEvent(normalized);
+      store.setActiveAlert(normalized);
+      store.incrementEmergencyCount();
+      store.setLiveNetworkStatus('emergency');
+      
+      addNotification({
+        type: 'error',
+        category: 'sos',
+        title: 'CRITICAL SOS ALERT',
+        message: `${normalized.userName || 'Citizen'} (${normalized.citizenId}) near ${normalized.area}`,
+      });
+    });
+
     socket.on('vehicle:updated', ({ vehicleId, lat, lng }) => {
       updateVehicle(vehicleId, { lat, lng, lastUpdated: Date.now() });
     });
@@ -162,6 +186,7 @@ export const useSocket = () => {
       socket.off('incident:new');
       socket.off('sos:new', handleSOSSocket);
       socket.off('sos:alert', handleSOSSocket);
+      socket.off('authority_receive_sos');
       socket.off('vehicle:updated');
       socket.off('risk:updated');
       unsubscribeAdded();

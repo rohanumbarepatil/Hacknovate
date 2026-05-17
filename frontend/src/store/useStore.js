@@ -9,10 +9,18 @@ const useStore = create((set) => ({
   sosEvents: [],
   riskScores: {},
   vehicles: [],
+  activeAlert: null,
+  emergencyCount: 0,
+  liveNetworkStatus: 'connected',
 
   setUser: (user) => set({ user }),
   setUserRole: (role) => set({ userRole: role }),
   setCurrentLocation: (location) => set({ currentLocation: location }),
+  
+  setActiveAlert: (activeAlert) => set({ activeAlert }),
+  setEmergencyCount: (count) => set({ emergencyCount: count }),
+  incrementEmergencyCount: () => set((state) => ({ emergencyCount: state.emergencyCount + 1 })),
+  setLiveNetworkStatus: (status) => set({ liveNetworkStatus: status }),
   
   setIncidents: (incidents) => set({ incidents }),
   addIncident: (incident) => set((state) => ({ 

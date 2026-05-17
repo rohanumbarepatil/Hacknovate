@@ -1,6 +1,7 @@
 import { Bell, Search, User, Menu } from 'lucide-react';
 import useAuthStore from '@/store/useAuthStore';
 import useNotificationStore from '@/store/useNotificationStore';
+import useStore from '@/store/useStore';
 import { StatusIndicator, Badge } from '@/components/common';
 
 /**
@@ -10,9 +11,14 @@ import { StatusIndicator, Badge } from '@/components/common';
 export default function TopBar({ title, onMenuClick }) {
   const { user } = useAuthStore();
   const { unreadCount } = useNotificationStore();
+  const { liveNetworkStatus, emergencyCount } = useStore();
 
   return (
-    <header className="h-16 bg-[#081120] border-b border-slate-800/80 px-8 flex items-center justify-between sticky top-0 z-40 select-none">
+    <header className={`h-16 px-8 flex items-center justify-between sticky top-0 z-40 select-none transition-all duration-500 ${
+      liveNetworkStatus === 'emergency'
+        ? 'bg-[#1C0909] border-b border-red-500/40 shadow-[inset_0_0_15px_rgba(239,68,68,0.15)] shadow-[0_4px_20px_rgba(239,68,68,0.25)]'
+        : 'bg-[#081120] border-b border-slate-800/80'
+    }`}>
       <div className="flex items-center gap-4 shrink-0">
         {onMenuClick && (
           <button 
@@ -22,7 +28,12 @@ export default function TopBar({ title, onMenuClick }) {
             <Menu size={18} />
           </button>
         )}
-        <h2 className="text-sm font-bold text-white tracking-wider uppercase">{title}</h2>
+        <h2 className="text-sm font-bold text-white tracking-wider uppercase flex items-center gap-2">
+          {liveNetworkStatus === 'emergency' && (
+            <span className="h-2 w-2 rounded-full bg-red-500 animate-ping" />
+          )}
+          {title}
+        </h2>
       </div>
 
       {/* Center Search - Authority Dashboard style */}
@@ -39,10 +50,19 @@ export default function TopBar({ title, onMenuClick }) {
 
       <div className="flex items-center gap-5 shrink-0">
         {/* Connection Status */}
-        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-emerald-500/5 border border-emerald-500/20 rounded-full">
-          <StatusIndicator status="online" size="xs" />
-          <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-wider">Live Network</span>
-        </div>
+        {liveNetworkStatus === 'emergency' ? (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 border border-red-500/30 rounded-full shadow-[0_0_10px_rgba(239,68,68,0.2)] animate-pulse">
+            <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_5px_rgba(239,68,68,1)]" />
+            <span className="text-[9px] font-bold text-red-400 uppercase tracking-widest">
+              🚨 {emergencyCount} ACTIVE EMERGENCY
+            </span>
+          </div>
+        ) : (
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-emerald-500/5 border border-emerald-500/20 rounded-full">
+            <StatusIndicator status="online" size="xs" />
+            <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-wider">Live Network</span>
+          </div>
+        )}
 
         {/* Notifications */}
         <button className="relative p-2 text-slate-400 hover:text-white hover:bg-slate-800/40 rounded-lg transition-colors">
