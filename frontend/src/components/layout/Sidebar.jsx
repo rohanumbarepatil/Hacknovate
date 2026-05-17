@@ -2,7 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { 
   Shield, LayoutDashboard, Map as MapIcon, 
   AlertTriangle, ClipboardList, Settings, 
-  LogOut, Users, Activity
+  LogOut, Users, Activity, Cpu
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import useAuthStore from '@/store/useAuthStore';
@@ -21,32 +21,33 @@ export default function Sidebar() {
   const isAuthority = userRole === ROLES.AUTHORITY || userRole === ROLES.ADMIN;
 
   const navItems = [
-    { label: 'Dashboard', icon: LayoutDashboard, path: isCitizen ? '/citizen' : '/authority', show: true },
-    { label: 'Safety Map', icon: MapIcon, path: isCitizen ? '/citizen/map' : '/authority/map', show: true },
+    { label: 'Dashboard', icon: LayoutDashboard, path: isCitizen ? '/citizen' : '/authority/dashboard', show: true },
+    { label: 'Safety Map', icon: MapIcon, path: isCitizen ? '/citizen/map' : '/authority/safety-map', show: true },
+    { label: 'AI Predictions', icon: Cpu, path: '/authority/predictions', show: isAuthority },
     { label: 'Incidents', icon: AlertTriangle, path: '/authority/incidents', show: isAuthority },
     { label: 'Complaints', icon: ClipboardList, path: isCitizen ? '/citizen/complaints' : '/authority/complaints', show: true },
     { label: 'Resources', icon: Activity, path: '/authority/resources', show: isAuthority },
     { label: 'Users', icon: Users, path: '/authority/users', show: userRole === ROLES.ADMIN },
-    { label: 'Settings', icon: Settings, path: '/settings', show: true },
+    { label: 'Settings', icon: Settings, path: '/authority/settings', show: true },
   ];
 
   return (
-    <div className="w-64 bg-gray-900 border-r border-white/5 flex flex-col h-full">
+    <div className="w-[260px] bg-[#060D19] border-r border-slate-800/60 flex flex-col h-full shrink-0 select-none">
       {/* Branding */}
-      <div className="p-6">
-        <Link to="/" className="flex items-center gap-3">
-          <div className="h-10 w-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-            <Shield className="h-6 w-6 text-white" />
+      <div className="p-6 border-b border-slate-800/40">
+        <Link to="/" className="flex items-center gap-3 group">
+          <div className="h-10 w-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/10 border border-blue-500/20 group-hover:scale-[1.02] transition-transform">
+            <Shield className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-white tracking-tight leading-tight">SafeCity</h1>
-            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{userRole || 'Loading...'}</p>
+            <h1 className="text-lg font-bold text-white tracking-tight leading-tight">SafeCity</h1>
+            <p className="text-[9px] text-slate-500 font-extrabold uppercase tracking-widest mt-0.5">{userRole || 'Loading...'}</p>
           </div>
         </Link>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-4 py-4 space-y-1">
+      <nav className="flex-1 px-3 py-6 space-y-1.5 overflow-y-auto custom-scrollbar">
         {navItems.filter(item => item.show).map((item) => {
           const isActive = location.pathname === item.path;
           return (
@@ -54,35 +55,29 @@ export default function Sidebar() {
               key={item.label}
               to={item.path}
               className={cn(
-                "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 group",
+                "flex items-center gap-3 px-4 py-3 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-150 group border-l-2",
                 isActive 
-                  ? "bg-blue-600/10 text-blue-400" 
-                  : "text-gray-400 hover:bg-white/5 hover:text-white"
+                  ? "bg-blue-600/5 text-blue-400 border-blue-500" 
+                  : "text-slate-400 hover:bg-slate-800/20 hover:text-slate-200 border-transparent"
               )}
             >
               <item.icon className={cn(
-                "h-5 w-5 transition-colors",
-                isActive ? "text-blue-400" : "text-gray-500 group-hover:text-gray-300"
+                "h-4 w-4 shrink-0 transition-colors",
+                isActive ? "text-blue-400" : "text-slate-500 group-hover:text-slate-300"
               )} />
               {item.label}
-              {isActive && (
-                <motion.div 
-                  layoutId="sidebar-active"
-                  className="ml-auto w-1 h-5 bg-blue-500 rounded-full"
-                />
-              )}
             </Link>
           );
         })}
       </nav>
 
       {/* User Footer */}
-      <div className="p-4 border-t border-white/5">
+      <div className="p-4 border-t border-slate-800/60 bg-[#040810]/40">
         <button
           onClick={logout}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-gray-400 hover:bg-red-500/10 hover:text-red-400 transition-all group"
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-xs font-semibold uppercase tracking-wider text-slate-400 hover:bg-red-950/20 hover:text-red-400 border-l-2 border-transparent hover:border-red-500 transition-all group"
         >
-          <LogOut className="h-5 w-5 text-gray-500 group-hover:text-red-400" />
+          <LogOut className="h-4 w-4 text-slate-500 group-hover:text-red-400 shrink-0" />
           Sign Out
         </button>
       </div>
