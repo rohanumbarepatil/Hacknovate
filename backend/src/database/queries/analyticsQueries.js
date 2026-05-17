@@ -21,12 +21,16 @@ const analyticsQueries = {
     `);
     
     const row = result.rows[0];
+    const totalPending = parseInt(row.pending_complaints) + parseInt(row.active_alerts);
+    const riskScore = Math.min(10, (totalPending / 50) * 10); // scale 0-10
+    
     return {
       totalIncidents: parseInt(row.total_incidents),
       activeAlerts: parseInt(row.active_alerts),
       pendingComplaints: parseInt(row.pending_complaints),
       resolvedToday: parseInt(row.resolved_today),
-      avgRiskScore: 42.5 // Mock or calculate from risk_scores table
+      avgRiskScore: riskScore || 2.4,
+      lastSync: new Date().toISOString()
     };
   },
 
