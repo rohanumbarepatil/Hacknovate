@@ -345,7 +345,6 @@ export default function CitizenPlatform() {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const { incidents, sosEvents, vehicles } = useStore();
   const [stats, setStats] = useState(null);
-  const [feed, setFeed] = useState([]);
   const [wards, setWards] = useState([]);
 
   // Live Complaint Tracking States
@@ -515,22 +514,18 @@ export default function CitizenPlatform() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [statsRes, feedRes, wardsRes] = await Promise.all([
+        const [statsRes, wardsRes] = await Promise.all([
           fetch('http://localhost:3001/api/analytics/stats').then(res => res.json()),
-          fetch('http://localhost:3001/api/analytics/feed').then(res => res.json()),
           fetch('http://localhost:3001/api/analytics/zones').then(res => res.json())
         ]);
         
         if (statsRes.status === 'success') setStats(statsRes.data);
-        if (feedRes.status === 'success') setFeed(feedRes.data);
         if (wardsRes.status === 'success') setWards(wardsRes.data);
       } catch (err) {
         console.error("Failed to fetch analytics:", err);
       }
     };
     fetchData();
-    const interval = setInterval(fetchData, 30000);
-    return () => clearInterval(interval);
   }, []);
 
   const currentAnalytics = LAYER_ANALYTICS[activeLayer] || LAYER_ANALYTICS[MAP_LAYERS.CRIME_HEATMAP];
@@ -1595,7 +1590,7 @@ export default function CitizenPlatform() {
              ))}
           </div>
 
-          {/* Bottom Split Layout: Master Graph & Operational Feeds */}
+          {/* Bottom Split Layout: Master Graph & Predictive AI Insights */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
              
              {/* 1. Master Graph Panel (2 Columns) */}
@@ -1641,60 +1636,26 @@ export default function CitizenPlatform() {
                  </div>
              </div>
              
-             {/* 2. Operational Feeds (1 Column) */}
-             <div className="flex flex-col gap-6">
-                
-                {/* Realtime Incident Feed */}
-                <div className="bg-[#0b1120] border border-[#1e293b] rounded-2xl p-5 shadow-xl flex-1 flex flex-col">
-                  <h3 className="text-[12px] font-bold text-white uppercase tracking-widest flex items-center gap-2 mb-4 border-b border-[#1e293b] pb-3">
-                    <Activity className="h-4 w-4 text-emerald-500" /> Operational Feed
-                  </h3>
-                  <div className="flex flex-col gap-4 overflow-y-auto pr-2 flex-1 max-h-[220px] custom-scrollbar">
-                    {feed.length > 0 ? feed.map((item, i) => (
-                      <div key={i} className="flex gap-3 p-2.5 rounded-lg hover:bg-[#1e293b]/40 transition-colors border border-transparent hover:border-[#1e293b] group">
-                        <div className="flex flex-col items-center">
-                           <span className={`h-2.5 w-2.5 rounded-full ${item.color} ring-4 ring-[#0b1120] mt-1 shadow-sm`} />
-                           {i !== feed.length - 1 && <div className="flex-1 w-px bg-[#1e293b] mt-2 group-hover:bg-[#334155] transition-colors" />}
-                        </div>
-                        <div className="flex-1 -mt-0.5">
-                          <div className="flex justify-between items-start mb-1">
-                            <span className="text-[11px] font-bold text-gray-200 tracking-wide">{item.title}</span>
-                            <span className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">{item.time}</span>
-                          </div>
-                          <p className="text-[11px] text-gray-400 leading-snug">{item.desc}</p>
-                        </div>
-                      </div>
-                    )) : (
-                      <div className="flex flex-col items-center justify-center py-10 opacity-50">
-                        <Loader2 className="h-6 w-6 animate-spin mb-2" />
-                        <span className="text-[11px] uppercase tracking-widest">Loading Feed...</span>
-                      </div>
-                    )}
+             {/* 2. Predictive AI Insights (1 Column) */}
+             <div className="bg-gradient-to-br from-[#1e293b] to-[#0f172a] border border-[#334155] rounded-2xl p-6 shadow-xl relative overflow-hidden group flex flex-col justify-center min-h-[224px]">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
+                <h3 className="text-[14px] font-bold text-blue-400 uppercase tracking-widest flex items-center gap-2 mb-6 relative z-10">
+                  <Zap className="h-4.5 w-4.5" /> AI Predictive Insights
+                </h3>
+                <div className="space-y-4 relative z-10 flex-1 flex flex-col justify-center">
+                  <div className="bg-[#0b1120]/60 border border-[#1e293b] p-4 rounded-xl flex items-start gap-3 hover:bg-[#0b1120] transition-colors">
+                     <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+                     <p className="text-[12px] text-gray-300 font-medium leading-relaxed">
+                       Higher accident probability expected near <strong className="text-white">Navale Bridge</strong> between 7PM–9PM based on historic traffic density.
+                     </p>
+                  </div>
+                  <div className="bg-[#0b1120]/60 border border-[#1e293b] p-4 rounded-xl flex items-start gap-3 hover:bg-[#0b1120] transition-colors">
+                     <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" />
+                     <p className="text-[12px] text-gray-300 font-medium leading-relaxed">
+                       Crime rates in <strong className="text-white">Shivajinagar</strong> have dropped by 14% since additional patrol deployment yesterday.
+                     </p>
                   </div>
                 </div>
-
-                {/* Predictive AI Insights */}
-                <div className="bg-gradient-to-br from-[#1e293b] to-[#0f172a] border border-[#334155] rounded-2xl p-5 shadow-xl relative overflow-hidden group">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
-                  <h3 className="text-[12px] font-bold text-blue-400 uppercase tracking-widest flex items-center gap-2 mb-3 relative z-10">
-                    <Zap className="h-4 w-4" /> AI Predictive Insights
-                  </h3>
-                  <div className="space-y-3 relative z-10">
-                    <div className="bg-[#0b1120]/50 border border-[#1e293b] p-3 rounded-lg flex items-start gap-3">
-                       <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-                       <p className="text-[11px] text-gray-300 font-medium leading-relaxed">
-                         Higher accident probability expected near <strong className="text-white">Navale Bridge</strong> between 7PM–9PM based on historic traffic density.
-                       </p>
-                    </div>
-                    <div className="bg-[#0b1120]/50 border border-[#1e293b] p-3 rounded-lg flex items-start gap-3">
-                       <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
-                       <p className="text-[11px] text-gray-300 font-medium leading-relaxed">
-                         Crime rates in <strong className="text-white">Shivajinagar</strong> have dropped by 14% since additional patrol deployment yesterday.
-                       </p>
-                    </div>
-                  </div>
-                </div>
-
              </div>
           </div>
         </div>
