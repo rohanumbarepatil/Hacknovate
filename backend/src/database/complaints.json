@@ -1,5 +1,74 @@
 [
   {
+    "id": "COMP-PUNE-2026-2873",
+    "complaintId": "COMP-PUNE-2026-2873",
+    "category": "street_light",
+    "description": "Poor street light in our area",
+    "imageUrl": "/uploads/complaints/complaint-1778997713604-65810759.jpg",
+    "latitude": 16.5795,
+    "longitude": 74.3131,
+    "lat": 16.5795,
+    "lng": 74.3131,
+    "area": "Pune Ward Sector",
+    "address": "Pune Ward Sector",
+    "severity": "MEDIUM",
+    "status": "Resolved",
+    "eta": "Completed",
+    "assignedDepartment": "MSEB Grid Team",
+    "authorityNotes": [],
+    "workflowHistory": [
+      {
+        "status": "Submitted",
+        "note": "Complaint registered successfully via SafeCity Citizen Portal.",
+        "updatedBy": "Citizen",
+        "timestamp": "11:31 am"
+      },
+      {
+        "status": "Resolved",
+        "note": "Resolved transition processed.",
+        "updatedBy": "Authority Command",
+        "timestamp": "11:34 am"
+      }
+    ],
+    "citizenId": "demo_citizen",
+    "filed_by": "demo_citizen",
+    "createdBy": "demo_citizen",
+    "createdAt": "2026-05-17T06:01:53.727Z",
+    "updatedAt": "2026-05-17T06:04:05.720Z",
+    "assigned_to": "MSEB Grid Team"
+  },
+  {
+    "id": "COMP-PUNE-2026-7707",
+    "complaintId": "COMP-PUNE-2026-7707",
+    "category": "street_light",
+    "description": "Poor street light in our area",
+    "imageUrl": "/uploads/complaints/complaint-1778997616259-714124106.jpg",
+    "latitude": 16.5795,
+    "longitude": 74.3131,
+    "lat": 16.5795,
+    "lng": 74.3131,
+    "area": "Pune Ward Sector",
+    "address": "Pune Ward Sector",
+    "severity": "MEDIUM",
+    "status": "Submitted",
+    "eta": "Pending Review",
+    "assignedDepartment": "Pending Routing",
+    "authorityNotes": [],
+    "workflowHistory": [
+      {
+        "status": "Submitted",
+        "note": "Complaint registered successfully via SafeCity Citizen Portal.",
+        "updatedBy": "Citizen",
+        "timestamp": "11:30 am"
+      }
+    ],
+    "citizenId": "wdUNtdpzRRd1rxuuFBGW0JiObFi1",
+    "filed_by": "wdUNtdpzRRd1rxuuFBGW0JiObFi1",
+    "createdBy": "wdUNtdpzRRd1rxuuFBGW0JiObFi1",
+    "createdAt": "2026-05-17T06:00:16.517Z",
+    "updatedAt": "2026-05-17T06:00:16.517Z"
+  },
+  {
     "id": "COMP-PUNE-2026-3798",
     "complaintId": "COMP-PUNE-2026-3798",
     "category": "street_light",
