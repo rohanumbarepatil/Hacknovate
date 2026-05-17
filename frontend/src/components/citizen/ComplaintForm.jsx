@@ -6,6 +6,7 @@ import { COMPLAINT_CATEGORIES } from '@/constants/roles';
 import { validateComplaint } from '@/utils/validators';
 import complaintService from '@/services/complaintService';
 import { showToast } from '@/components/common/Toast';
+import socket from '@/services/socket';
 
 export default function ComplaintForm({ onSuccess }) {
   const { location } = useLocation();
@@ -41,11 +42,18 @@ export default function ComplaintForm({ onSuccess }) {
 
     setLoading(true);
     try {
-      await complaintService.create(dataToValidate, photo);
+      const res = await complaintService.create(dataToValidate, photo);
+      
+      // Emit the socket event so the authority receives it in real time
+      const complaintData = res.success ? res.data : res;
+      if (complaintData) {
+        socket.emit('new_complaint', complaintData);
+      }
+
       showToast({ type: 'success', title: 'Complaint Filed', message: 'Your complaint has been submitted for review.' });
       setFormData({ category: '', description: '', address: '' });
       setPhoto(null);
-      if (onSuccess) onSuccess();
+      if (onSuccess) onSuccess(complaintData);
     } catch (err) {
       showToast({ type: 'error', title: 'Submission Failed', message: 'Unable to submit complaint. Please try again.' });
     } finally {

@@ -28,8 +28,22 @@ const useStore = create((set) => ({
   })),
   
   setComplaints: (complaints) => set({ complaints }),
-  addComplaint: (complaint) => set((state) => ({ 
-    complaints: [...state.complaints, complaint] 
+  addComplaint: (complaint) => set((state) => {
+    // Prevent duplicate entries by checking id or complaintId
+    const exists = state.complaints.some(c => c.id === complaint.id || c.complaintId === complaint.complaintId);
+    if (exists) {
+      return {
+        complaints: state.complaints.map(c => 
+          (c.id === complaint.id || c.complaintId === complaint.complaintId) ? { ...c, ...complaint } : c
+        )
+      };
+    }
+    return { complaints: [complaint, ...state.complaints] };
+  }),
+  updateComplaintStatus: (id, status, updatedComplaint = {}) => set((state) => ({
+    complaints: state.complaints.map((c) =>
+      (c.id === id || c.complaintId === id) ? { ...c, ...updatedComplaint, status } : c
+    )
   })),
   
   setSosEvents: (events) => set({

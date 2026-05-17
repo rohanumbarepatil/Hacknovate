@@ -73,6 +73,7 @@ import useMapStore from '@/store/useMapStore';
 import useNotificationStore from '@/store/useNotificationStore';
 import { MAP_LAYERS } from '@/constants/mapConfig';
 import { rtdb } from '@/services/firebase';
+import complaintService from '@/services/complaintService';
 
 // Helper: Timestamp formatter
 function toTimestamp(value) {
@@ -964,181 +965,457 @@ function IncidentsPage() {
 // 5. COMPLAINTS (CITIZEN GRIEVANCE) PAGE
 // ----------------------------------------------------
 function ComplaintsPage() {
-  const { complaints } = useStore();
+  const { complaints, setComplaints } = useStore();
   const [selectedComplaint, setSelectedComplaint] = useState(null);
   const [categoryFilter, setCategoryFilter] = useState('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const defaultComplaints = [
-    { id: 'comp_2001', category: 'road damage', address: 'NH4 Highway, Satara Exit near Sector 4', citizen: 'Aditya Kulkarni', desc: 'Huge potholes in the middle of the lanes creating severe accident risk.', date: Date.now() - 3600000, status: 'acknowledged', authority: 'Pune Municipal Corp (PMC)' },
-    { id: 'comp_2002', category: 'street lights', address: 'Sadar Bazar Inner Link Road', citizen: 'Neha Joshi', desc: 'Entire block is pitch black for the last three nights. Safety concern.', date: Date.now() - 86400000, status: 'resolved', authority: 'MSEB Grid Authority' },
-    { id: 'comp_2003', category: 'sanitation', address: 'Shivajinagar Depot Corner near Satara Gate', citizen: 'Rahul Deshmukh', desc: 'Garbage dump blocking the exit walkway creating unhygienic conditions.', date: Date.now() - 172800000, status: 'pending', authority: 'PMC Waste Management' },
-    { id: 'comp_2004', category: 'traffic', address: 'Powai Naka Traffic Junction', citizen: 'Sunil Shinde', desc: 'Illegally parked commercial trucks blocking access lines during peak hours.', date: Date.now() - 259200000, status: 'pending', authority: 'Satara Traffic Police' },
-  ];
+  // Dispatcher action inputs
+  const [actionNote, setActionNote] = useState('');
+  const [actionDept, setActionDept] = useState('PMC Road Wing');
+  const [actionETA, setActionETA] = useState('12 Hours');
+
+  useEffect(() => {
+    if (selectedComplaint) {
+      setActionNote('');
+      const cat = String(selectedComplaint.category).toLowerCase();
+      if (cat.includes('road')) {
+        setActionDept('PMC Road Wing');
+        setActionETA('12 Hours');
+      } else if (cat.includes('light')) {
+        setActionDept('MSEB Grid Team');
+        setActionETA('6 Hours');
+      } else if (cat.includes('sanit') || cat.includes('waste') || cat.includes('garbage')) {
+        setActionDept('PMC Sanitation Dept.');
+        setActionETA('24 Hours');
+      } else if (cat.includes('traffic')) {
+        setActionDept('Pune Traffic Police');
+        setActionETA('2 Hours');
+      } else {
+        setActionDept('Municipal Core Wing');
+        setActionETA('12 Hours');
+      }
+    }
+  }, [selectedComplaint]);
+
+  // Dynamic fetch of complaints on mount
+  useEffect(() => {
+    let active = true;
+    async function loadData() {
+      try {
+        setIsLoading(true);
+        const res = await complaintService.getAll();
+        if (active) {
+          const list = res.success ? res.data : res;
+          if (Array.isArray(list)) {
+            setComplaints(list);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch complaints in dashboard:', err);
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    }
+    loadData();
+    return () => {
+      active = false;
+    };
+  }, [setComplaints]);
 
   const mergedComplaints = useMemo(() => {
-    const list = [...defaultComplaints];
+    const list = [];
+    
+    // Process backend complaints
     complaints.forEach(item => {
-      if (!list.some(x => x.id === item.id)) {
-        list.unshift({
-          id: item.id || `comp_${Date.now()}`,
-          category: item.category || 'other',
-          address: item.address || 'Satara Command Ward',
-          citizen: item.citizenName || 'Pune Resident',
-          desc: item.description || 'Civic grievance reported.',
-          date: item.createdAt || Date.now(),
-          status: item.status || 'pending',
-          authority: item.assignedAuthority || 'Assigned local Ward Authority'
-        });
-      }
+      list.push({
+        id: item.complaintId || item.id || `COMP-${Date.now()}`,
+        category: item.category || 'other',
+        address: item.address || item.area || 'Pune Command Ward',
+        citizen: item.citizenName || item.citizen || item.filed_by || 'Pune Citizen',
+        desc: item.description || 'Civic grievance reported via citizen dashboard.',
+        date: item.createdAt || Date.now(),
+        status: item.status || 'Submitted',
+        authority: item.assignedDepartment || 'PMC Command Center',
+        imageUrl: item.imageUrl || '',
+        severity: item.severity || 'MEDIUM',
+        eta: item.eta || '',
+        workflowHistory: item.workflowHistory || [],
+        rawItem: item // Keep the raw item reference for actions
+      });
     });
-    return list;
+
+    // Sort by Date (newest first)
+    return list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [complaints]);
 
   const filteredComplaints = useMemo(() => {
     return mergedComplaints.filter(item => {
-      return categoryFilter === 'ALL' || item.category.toLowerCase() === categoryFilter.toLowerCase();
+      const matchesCategory = categoryFilter === 'ALL' || item.category.toLowerCase().includes(categoryFilter.toLowerCase());
+      const matchesSearch = searchQuery === '' || 
+        item.address.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        item.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.desc.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesCategory && matchesSearch;
     });
-  }, [mergedComplaints, categoryFilter]);
+  }, [mergedComplaints, categoryFilter, searchQuery]);
 
   useEffect(() => {
-    if (filteredComplaints.length > 0 && !selectedComplaint) {
+    if (filteredComplaints.length > 0 && (!selectedComplaint || !filteredComplaints.some(x => x.id === selectedComplaint.id))) {
       setSelectedComplaint(filteredComplaints[0]);
     }
   }, [filteredComplaints, selectedComplaint]);
 
-  const handleUpdateStatus = (newStatus) => {
-    if (selectedComplaint) {
-      setSelectedComplaint(prev => ({ ...prev, status: newStatus }));
+  const handleUpdateStatus = async (newStatus) => {
+    if (!selectedComplaint) return;
+    try {
+      // Map display labels to backend database standard values
+      let apiStatus = newStatus;
+      if (newStatus === 'resolved') apiStatus = 'Resolved';
+      if (newStatus === 'in_progress') apiStatus = 'In Progress';
+      if (newStatus === 'pending') apiStatus = 'Pending Review';
+
+      const finalNote = actionNote.trim() || `${apiStatus} transition processed.`;
+      
+      const payload = {
+        status: apiStatus,
+        note: finalNote,
+        assignedDepartment: actionDept,
+        eta: apiStatus === 'Resolved' ? 'Completed' : actionETA,
+        updatedBy: 'Pune Command Center'
+      };
+
+      const res = await complaintService.updateStatus(selectedComplaint.id, payload);
+      const updatedItem = res.success ? res.data : res;
+
+      // Snappy optimistically updated local page UI state
+      setSelectedComplaint(prev => ({ 
+        ...prev, 
+        status: apiStatus,
+        authority: payload.assignedDepartment,
+        eta: payload.eta,
+        workflowHistory: updatedItem?.workflowHistory || prev.workflowHistory
+      }));
+      
+      // Update global store directly too as double backup
+      const store = useStore.getState();
+      store.updateComplaintStatus(selectedComplaint.id, apiStatus);
+
+      // Force refresh of backend complaints list
+      const freshList = await complaintService.getAll();
+      const list = freshList.success ? freshList.data : freshList;
+      if (Array.isArray(list)) {
+        setComplaints(list);
+      }
+
       showToast({
         type: 'success',
-        title: 'Complaint Updated',
-        message: `Civic Grievance marked as ${newStatus}.`
+        title: 'Status Transitioned',
+        message: `Civic Grievance ${selectedComplaint.id} marked as ${apiStatus}.`
+      });
+      
+      // Clear action note
+      setActionNote('');
+    } catch (err) {
+      console.error('Failed to transition status:', err);
+      showToast({
+        type: 'error',
+        title: 'Transition Failed',
+        message: 'Database connection failed or permission denied.'
       });
     }
   };
 
   const getCategoryIcon = (category) => {
-    switch (category.toLowerCase()) {
-      case 'road damage': return Sliders;
-      case 'street lights': return Zap;
-      case 'sanitation': return Shield;
-      case 'traffic': return Activity;
-      default: return ClipboardList;
-    }
+    const cat = String(category).toLowerCase();
+    if (cat.includes('road')) return Sliders;
+    if (cat.includes('light')) return Zap;
+    if (cat.includes('sanit') || cat.includes('waste') || cat.includes('garbage')) return Shield;
+    if (cat.includes('traffic')) return Activity;
+    if (cat.includes('water')) return Sliders;
+    return ClipboardList;
+  };
+
+  const getSeverityColor = (sev) => {
+    const s = String(sev).toUpperCase();
+    if (s === 'CRITICAL') return 'text-rose-400 border-rose-500/25 bg-rose-500/10 animate-pulse';
+    if (s === 'HIGH') return 'text-amber-400 border-amber-500/25 bg-amber-500/10';
+    return 'text-sky-400 border-sky-500/25 bg-sky-500/10';
+  };
+
+  const getStatusLabelColor = (status) => {
+    const s = String(status).toLowerCase();
+    if (s.includes('pending')) return 'text-amber-400 bg-amber-500/10 border-amber-500/20';
+    if (s.includes('progress') || s.includes('assign')) return 'text-blue-400 bg-blue-500/10 border-blue-500/20';
+    if (s.includes('resolve')) return 'text-green-400 bg-green-500/10 border-green-500/20';
+    return 'text-slate-400 bg-slate-500/10 border-slate-500/20';
   };
 
   return (
     <PageWrapper>
       <div className="flex-1 flex gap-6 min-h-0 items-stretch">
         
+        {/* Left Side: Complaints Feed */}
         <div className="flex-1 border border-slate-800/85 bg-[#0B1730]/90 rounded-xl shadow-xl flex flex-col overflow-hidden">
-          <div className="p-4 border-b border-slate-800/60 bg-[#060D18]/50 flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-350 uppercase tracking-widest">Pune Care Grievances</span>
+          <div className="p-4 border-b border-slate-800/60 bg-[#060D18]/50 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-350 uppercase tracking-widest">Pune Care Grievances</span>
+              {isLoading && <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-ping" />}
+            </div>
             
-            <div className="flex items-center gap-1.5 bg-[#060D18]/80 p-0.5 border border-slate-800 rounded-lg select-none">
-              {['ALL', 'road damage', 'street lights', 'sanitation', 'traffic'].map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => setCategoryFilter(cat)}
-                  className={`px-3 py-1 rounded text-[9px] font-bold uppercase tracking-wider transition-all ${
-                    categoryFilter === cat 
-                      ? 'bg-blue-600/15 text-blue-400 border border-blue-500/20' 
-                      : 'text-slate-400 hover:text-slate-200 border border-transparent'
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
+            {/* Real-time Category Selector */}
+            <div className="flex flex-wrap items-center gap-1.5 bg-[#060D18]/80 p-0.5 border border-slate-800 rounded-lg select-none">
+              {['ALL', 'road_damage', 'street_light', 'sanitation', 'traffic'].map(cat => {
+                const count = cat === 'ALL' 
+                  ? mergedComplaints.length 
+                  : mergedComplaints.filter(item => item.category.toLowerCase().includes(cat.toLowerCase())).length;
+                const label = cat === 'road_damage' ? 'Road' : cat === 'street_light' ? 'Light' : cat;
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setCategoryFilter(cat)}
+                    className={`px-2.5 py-1 rounded text-[9px] font-bold uppercase tracking-wider transition-all flex items-center gap-1 ${
+                      categoryFilter === cat 
+                        ? 'bg-blue-600/15 text-blue-400 border border-blue-500/20' 
+                        : 'text-slate-400 hover:text-slate-200 border border-transparent'
+                    }`}
+                  >
+                    <span>{label}</span>
+                    <span className={`px-1 py-0.2 rounded-full text-[8px] ${
+                      categoryFilter === cat 
+                        ? 'bg-blue-500/20 text-blue-400 font-extrabold' 
+                        : 'bg-slate-800 text-slate-400 font-bold'
+                    }`}>{count}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
+          {/* Search bar helper */}
+          <div className="px-4 py-2 border-b border-slate-850 bg-[#060D18]/20 flex items-center gap-2">
+            <Search className="h-3.5 w-3.5 text-slate-550 shrink-0" />
+            <input 
+              type="text"
+              placeholder="Search grievances by area, ID, description..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-transparent text-xs text-slate-200 placeholder-slate-600 focus:outline-none"
+            />
+            {searchQuery && (
+              <button 
+                onClick={() => setSearchQuery('')}
+                className="text-[9px] text-slate-500 hover:text-white uppercase font-bold"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
           <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3">
-            {filteredComplaints.map((item) => {
-              const Icon = getCategoryIcon(item.category);
-              return (
-                <div 
-                  key={item.id}
-                  onClick={() => setSelectedComplaint(item)}
-                  className={`p-4 border rounded-xl cursor-pointer transition-all flex items-start gap-4 ${
-                    selectedComplaint?.id === item.id 
-                      ? 'border-blue-500/30 bg-blue-600/[0.03]' 
-                      : 'border-slate-800 bg-[#060D18]/30 hover:bg-[#060D18]/50'
-                  }`}
-                >
-                  <div className={`p-2.5 rounded-lg border ${
-                    selectedComplaint?.id === item.id 
-                      ? 'bg-blue-600/10 border-blue-500/20 text-blue-400' 
-                      : 'bg-slate-900 border-slate-800 text-slate-500'
-                  }`}>
-                    <Icon className="h-4 w-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{item.category}</span>
-                      <Badge variant={getStatusVariant(item.status)}>{item.status.toUpperCase()}</Badge>
+            {filteredComplaints.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center select-none">
+                <ClipboardList className="h-10 w-10 text-slate-700 mb-2 opacity-40" />
+                <p className="text-xs font-bold text-slate-500">No matching grievances found</p>
+              </div>
+            ) : (
+              filteredComplaints.map((item) => {
+                const Icon = getCategoryIcon(item.category);
+                return (
+                  <div 
+                    key={item.id}
+                    onClick={() => setSelectedComplaint(item)}
+                    className={`p-4 border rounded-xl cursor-pointer transition-all flex items-start gap-4 ${
+                      selectedComplaint?.id === item.id 
+                        ? 'border-blue-500/30 bg-blue-600/[0.03] shadow-[0_0_15px_rgba(59,130,246,0.05)]' 
+                        : 'border-slate-800 bg-[#060D18]/30 hover:bg-[#060D18]/50'
+                    }`}
+                  >
+                    <div className={`p-2.5 rounded-lg border shrink-0 ${
+                      selectedComplaint?.id === item.id 
+                        ? 'bg-blue-600/10 border-blue-500/20 text-blue-400' 
+                        : 'bg-slate-900 border-slate-800 text-slate-500'
+                    }`}>
+                      <Icon className="h-4 w-4" />
                     </div>
-                    <p className="text-xs font-bold text-slate-200 mt-1 truncate">{item.address}</p>
-                    <p className="text-[10px] text-slate-550 mt-0.5 font-medium">Reported by {item.citizen} • {formatRelativeTime(item.date)}</p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{item.category.replace('_', ' ')}</span>
+                          <span className={`px-1.5 py-0.2 rounded border text-[8px] font-bold tracking-wider ${getSeverityColor(item.severity)}`}>
+                            {item.severity}
+                          </span>
+                        </div>
+                        <Badge className={`px-2 py-0.5 text-[8px] border font-bold ${getStatusLabelColor(item.status)}`}>
+                          {String(item.status || 'Submitted').toUpperCase()}
+                        </Badge>
+                      </div>
+                      <p className="text-xs font-bold text-slate-200 mt-1 truncate">{item.address}</p>
+                      <p className="text-[10px] text-slate-550 mt-0.5 font-medium">
+                        ID: {item.id} • Reported by {item.citizen} • {formatRelativeTime(item.date)}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
 
-        <div className="w-80 shrink-0 border border-slate-800/85 bg-[#0B1730]/90 rounded-xl shadow-xl flex flex-col overflow-hidden">
-          <div className="px-4 py-3.5 border-b border-slate-800/50 bg-[#060D18]/30 select-none">
-            <span className="text-xs font-bold text-slate-350 uppercase tracking-wider">Grievance Review</span>
+        {/* Right Side: Grievance Details & Workflow Panel */}
+        <div className="w-96 shrink-0 border border-slate-800/85 bg-[#0B1730]/90 rounded-xl shadow-xl flex flex-col overflow-hidden">
+          <div className="px-4 py-3.5 border-b border-slate-800/50 bg-[#060D18]/30 select-none flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-350 uppercase tracking-wider">Grievance Command Panel</span>
           </div>
 
           {selectedComplaint ? (
-            <div className="p-5 flex-1 flex flex-col justify-between overflow-y-auto custom-scrollbar">
-              <div className="space-y-5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">{selectedComplaint.category}</span>
-                  <Badge variant={getStatusVariant(selectedComplaint.status)}>{selectedComplaint.status.toUpperCase()}</Badge>
+            <div className="p-5 flex-1 flex flex-col justify-between overflow-y-auto custom-scrollbar space-y-5">
+              <div className="space-y-4">
+                
+                {/* 1. Header category and status */}
+                <div className="flex items-center justify-between border-b border-slate-850 pb-3">
+                  <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">{selectedComplaint.category.replace('_', ' ')}</span>
+                  <Badge className={`px-2 py-0.5 text-[8px] border font-bold ${getStatusLabelColor(selectedComplaint.status)}`}>
+                    {String(selectedComplaint.status || 'Submitted').toUpperCase()}
+                  </Badge>
                 </div>
 
+                {/* 2. Uploaded image container (Fidelity boost) */}
+                {selectedComplaint.imageUrl && (
+                  <div className="relative rounded-lg overflow-hidden border border-slate-850 bg-slate-950 aspect-video group shadow-inner">
+                    <img 
+                      src={selectedComplaint.imageUrl.startsWith('http') 
+                        ? selectedComplaint.imageUrl 
+                        : `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${selectedComplaint.imageUrl}`
+                      } 
+                      alt="Civic Grievance Evidence"
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = '/uploads/complaints/placeholder.jpg';
+                      }}
+                    />
+                    <div className="absolute top-2 right-2 px-2 py-0.5 rounded bg-black/75 border border-slate-800/60 backdrop-blur-md">
+                      <span className="text-[8px] font-bold text-slate-350 tracking-wider uppercase">Live Attachment</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. Operational telemetry detail grid */}
                 <div className="space-y-3 text-xs">
                   <div>
-                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-0.5">Assigned Authority</span>
-                    <p className="text-xs font-bold text-slate-200">{selectedComplaint.authority}</p>
+                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-0.5">Report ID</span>
+                    <p className="text-xs font-mono font-bold text-slate-200">{selectedComplaint.id}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-0.5">Severity Level</span>
+                      <span className={`inline-block px-1.5 py-0.2 rounded border text-[9px] font-bold mt-0.5 tracking-wider ${getSeverityColor(selectedComplaint.severity)}`}>
+                        {selectedComplaint.severity}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-0.5">Department Assignment</span>
+                      <p className="text-xs font-bold text-slate-200 mt-0.5">{selectedComplaint.authority || 'Pending Routing'}</p>
+                    </div>
                   </div>
                   <div>
                     <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-0.5">Location Address</span>
                     <p className="text-xs font-semibold text-slate-300">{selectedComplaint.address}</p>
                   </div>
                   <div>
-                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-0.5">Citizen Identity</span>
+                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-0.5">Filer Identity</span>
                     <p className="text-xs font-semibold text-slate-300">{selectedComplaint.citizen}</p>
                   </div>
                   <div>
                     <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Grievance Description</span>
-                    <div className="p-3 bg-[#060D18]/45 border border-slate-850 rounded-lg text-slate-400 text-xs leading-relaxed">
+                    <div className="p-3 bg-[#060D18]/45 border border-slate-850 rounded-lg text-slate-400 text-xs leading-relaxed max-h-24 overflow-y-auto custom-scrollbar">
                       {selectedComplaint.desc}
                     </div>
                   </div>
                 </div>
+              </div>
 
-                <div className="space-y-2 select-none">
-                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block">Workflow Actions</span>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button 
-                      onClick={() => handleUpdateStatus('resolved')}
-                      disabled={selectedComplaint.status === 'resolved'}
-                      className="py-2 px-3 bg-green-500/10 border border-green-500/25 text-green-400 text-[9px] font-bold rounded-lg uppercase tracking-wider hover:bg-green-500/20 transition-all disabled:opacity-40"
+              {/* dispatcher dispatch tools */}
+              <div className="space-y-3 border-t border-slate-850 pt-4">
+                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block">Operational Dispatch Logs</span>
+                
+                {/* Note */}
+                <div className="space-y-1">
+                  <label className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Action note & instructions</label>
+                  <textarea
+                    placeholder="Enter dispatch notes, worker updates, or resolution remarks..."
+                    value={actionNote}
+                    onChange={(e) => setActionNote(e.target.value)}
+                    className="w-full bg-[#060D18]/80 border border-slate-800 rounded-lg p-2 text-xs font-semibold text-white placeholder-slate-600 focus:outline-none focus:border-blue-500/50 min-h-[50px] resize-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Department Assignment */}
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Assigned Team Wing</label>
+                    <select
+                      value={actionDept}
+                      onChange={(e) => setActionDept(e.target.value)}
+                      className="w-full bg-[#060D18] border border-slate-800 rounded-lg p-2 text-[11px] font-bold text-white focus:outline-none focus:border-blue-500/50"
                     >
-                      Mark Resolved
-                    </button>
-                    <button 
-                      onClick={() => handleUpdateStatus('acknowledged')}
-                      className="py-2 px-3 bg-[#060D18] border border-slate-800 text-slate-300 text-[9px] font-bold rounded-lg uppercase tracking-wider hover:text-white transition-all"
+                      <option value="PMC Road Wing">PMC Road Wing</option>
+                      <option value="MSEB Grid Team">MSEB Grid Team</option>
+                      <option value="PMC Sanitation Dept.">PMC Sanitation Dept.</option>
+                      <option value="Pune Traffic Police">Pune Traffic Police</option>
+                      <option value="Municipal Core Wing">Municipal Core Wing</option>
+                    </select>
+                  </div>
+
+                  {/* Operational ETA */}
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider block">Resolution ETA</label>
+                    <select
+                      value={actionETA}
+                      onChange={(e) => setActionETA(e.target.value)}
+                      className="w-full bg-[#060D18] border border-slate-800 rounded-lg p-2 text-[11px] font-bold text-white focus:outline-none focus:border-blue-500/50"
                     >
-                      Acknowledge
-                    </button>
+                      <option value="2 Hours">2 Hours</option>
+                      <option value="6 Hours">6 Hours</option>
+                      <option value="12 Hours">12 Hours</option>
+                      <option value="24 Hours">24 Hours</option>
+                      <option value="3 Days">3 Days</option>
+                      <option value="Completed">Completed</option>
+                    </select>
                   </div>
                 </div>
               </div>
+
+              {/* 4. Action buttons section */}
+              <div className="space-y-2.5 border-t border-slate-850 pt-4 select-none">
+                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block">Workflow Status Transitions</span>
+                <div className="grid grid-cols-3 gap-2">
+                  <button 
+                    onClick={() => handleUpdateStatus('pending')}
+                    disabled={String(selectedComplaint.status || '').toLowerCase().includes('pending')}
+                    className="py-2 px-2.5 bg-slate-900 border border-slate-800 text-slate-300 text-[9px] font-bold rounded-lg uppercase tracking-wider hover:text-white transition-all disabled:opacity-40"
+                  >
+                    Hold
+                  </button>
+                  <button 
+                    onClick={() => handleUpdateStatus('in_progress')}
+                    disabled={String(selectedComplaint.status || '').toLowerCase().includes('progress')}
+                    className="py-2 px-2.5 bg-blue-500/10 border border-blue-500/25 text-blue-400 text-[9px] font-bold rounded-lg uppercase tracking-wider hover:bg-blue-500/20 transition-all disabled:opacity-40"
+                  >
+                    Progress
+                  </button>
+                  <button 
+                    onClick={() => handleUpdateStatus('resolved')}
+                    disabled={String(selectedComplaint.status || '').toLowerCase().includes('resolve')}
+                    className="py-2 px-2.5 bg-green-500/10 border border-green-500/25 text-green-400 text-[9px] font-bold rounded-lg uppercase tracking-wider hover:bg-green-500/20 transition-all disabled:opacity-40"
+                  >
+                    Resolve
+                  </button>
+                </div>
+              </div>
+
             </div>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center p-6 text-center select-none">

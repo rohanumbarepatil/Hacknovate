@@ -1,0 +1,146 @@
+[
+  {
+    "id": "COMP-PUNE-2026-3798",
+    "complaintId": "COMP-PUNE-2026-3798",
+    "category": "street_light",
+    "description": "Detected 12 similar issues in your ward. The municipal rapid response team is currently active in this sector.",
+    "imageUrl": "/uploads/complaints/complaint-1778995592434-313586543.png",
+    "latitude": 16.5795,
+    "longitude": 74.3131,
+    "lat": 16.5795,
+    "lng": 74.3131,
+    "area": "Pune Ward Sector",
+    "address": "Pune Ward Sector",
+    "severity": "MEDIUM",
+    "status": "Resolved",
+    "eta": "Completed",
+    "assignedDepartment": "MSEB Grid Team",
+    "authorityNotes": [],
+    "workflowHistory": [
+      {
+        "status": "Submitted",
+        "note": "Complaint registered successfully via SafeCity Citizen Portal.",
+        "updatedBy": "Citizen",
+        "timestamp": "10:56 am"
+      },
+      {
+        "status": {
+          "status": "Resolved",
+          "note": "Resolved transition processed.",
+          "assignedDepartment": "MSEB Grid Team",
+          "eta": "Completed",
+          "updatedBy": "Pune Command Center"
+        },
+        "note": "Complaint status transitioned to [object Object].",
+        "updatedBy": "Authority Command",
+        "timestamp": "10:57 am"
+      },
+      {
+        "status": {
+          "status": "Resolved",
+          "note": "Resolved transition processed.",
+          "assignedDepartment": "MSEB Grid Team",
+          "eta": "Completed",
+          "updatedBy": "Pune Command Center"
+        },
+        "note": "Complaint status transitioned to [object Object].",
+        "updatedBy": "Authority Command",
+        "timestamp": "11:00 am"
+      },
+      {
+        "status": "Resolved",
+        "note": "Resolved transition processed.",
+        "updatedBy": "Authority Command",
+        "timestamp": "11:10 am"
+      }
+    ],
+    "citizenId": "wdUNtdpzRRd1rxuuFBGW0JiObFi1",
+    "filed_by": "wdUNtdpzRRd1rxuuFBGW0JiObFi1",
+    "createdBy": "wdUNtdpzRRd1rxuuFBGW0JiObFi1",
+    "createdAt": "2026-05-17T05:26:32.523Z",
+    "updatedAt": "2026-05-17T05:40:29.187Z",
+    "assigned_to": "MSEB Grid Team"
+  },
+  {
+    "id": "COMP-2984",
+    "complaintId": "COMP-2984",
+    "category": "road_damage",
+    "description": "There is a huge pothole near Shivaji Nagar junction that is causing serious traffic hazard and damage to vehicles.",
+    "latitude": 16.5795,
+    "longitude": 74.3131,
+    "address": "Pune Ward Sector",
+    "area": "Pune Ward Sector",
+    "imageUrl": "/uploads/complaints/placeholder.jpg",
+    "severity": "MEDIUM",
+    "status": "Resolved",
+    "assigned_to": "",
+    "filed_by": "demo_citizen",
+    "createdBy": "demo_citizen",
+    "createdAt": "2026-05-17T05:01:36.201Z",
+    "updatedAt": "2026-05-17T05:13:25.062Z"
+  },
+  {
+    "id": "COMP-8703",
+    "category": "harassment",
+    "description": "Detected 12 similar issues in your ward. The municipal rapid response team is currently active in this sector.",
+    "latitude": 16.5795,
+    "longitude": 74.3131,
+    "address": "Pune Ward Sector",
+    "area": "Pune Ward Sector",
+    "imageUrl": "/uploads/complaints/complaint-1778993418662-97964219.jpeg",
+    "severity": "MEDIUM",
+    "status": "Pending Review",
+    "assigned_to": "",
+    "filed_by": "wdUNtdpzRRd1rxuuFBGW0JiObFi1",
+    "createdAt": "2026-05-17T04:50:18.699Z",
+    "updatedAt": "2026-05-17T04:50:18.699Z"
+  },
+  {
+    "id": "COMP-1871",
+    "category": "traffic",
+    "description": "Est. 24h Resolution\r\nDetected 12 similar issues in your ward. The municipal rapid response team is currently active in this sector.",
+    "latitude": 16.5795,
+    "longitude": 74.3131,
+    "address": "Pune Ward Sector",
+    "area": "Pune Ward Sector",
+    "imageUrl": "/uploads/complaints/complaint-1778993178219-695201691.png",
+    "severity": "MEDIUM",
+    "status": "Pending Review",
+    "assigned_to": "",
+    "filed_by": "wdUNtdpzRRd1rxuuFBGW0JiObFi1",
+    "createdAt": "2026-05-17T04:46:18.410Z",
+    "updatedAt": "2026-05-17T04:46:18.410Z"
+  },
+  {
+    "id": "COMP-101",
+    "category": "sanitation",
+    "description": "Garbage dump pile overflowing near Shivajinagar municipal bins. Unhygienic and blocking path.",
+    "latitude": 18.5312,
+    "longitude": 73.8445,
+    "address": "Shivajinagar, Pune",
+    "area": "Shivajinagar",
+    "imageUrl": "/uploads/complaints/mock-garbage.jpg",
+    "severity": "HIGH",
+    "status": "Pending Review",
+    "assigned_to": "PMC Sanitation Division",
+    "filed_by": "demo_citizen",
+    "createdAt": "2026-05-17T02:46:18.404Z",
+    "updatedAt": "2026-05-17T02:46:18.404Z"
+  },
+  {
+    "id": "COMP-102",
+    "category": "traffic",
+    "description": "Traffic signals malfunctioning near Swargate chowk. All lights blinking yellow.",
+    "latitude": 18.5015,
+    "longitude": 73.8632,
+    "address": "Swargate Square, Pune",
+    "area": "Swargate",
+    "imageUrl": "/uploads/complaints/mock-signal.jpg",
+    "severity": "CRITICAL",
+    "status": "In Progress",
+    "assigned_to": "Pune Traffic Control",
+    "filed_by": "demo_citizen",
+    "createdAt": "2026-05-16T23:46:18.404Z",
+    "updatedAt": "2026-05-17T00:46:18.404Z"
+  }
+]

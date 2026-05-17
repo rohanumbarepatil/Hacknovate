@@ -52,6 +52,14 @@ export function setupSocketHandlers(io) {
       socket.broadcast.emit(SOCKET_EVENTS.SOS_ALERT, data);
     });
 
+    // Handle citizen real-time complaint submissions
+    socket.on('new_complaint', (data) => {
+      logger.socket(`📝 New Complaint submitted: ${data.id || 'Unknown ID'} in area: ${data.area || 'Unknown Area'}`);
+      // Broadcast instantly to all authority dashboards
+      io.emit('authority_new_complaint', data);
+      io.emit(SOCKET_EVENTS.COMPLAINT_NEW, data);
+    });
+
     socket.on('disconnect', () => {
       logger.socket(`Client disconnected: ${socket.id}`);
     });

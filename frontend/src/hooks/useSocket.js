@@ -11,6 +11,7 @@ import socket from '../services/socket';
 import useStore from '../store/useStore';
 import useNotificationStore from '@/store/useNotificationStore';
 import { rtdb } from '@/services/firebase';
+import { showToast } from '@/components/common/Toast';
 
 function toNumberOrNull(value) {
   if (Number.isFinite(value)) return value;
@@ -147,6 +148,66 @@ export const useSocket = () => {
       updateRiskScore(wardId, score);
     });
 
+    // Real-time Citizen Complaints Handlers
+    socket.on('authority_new_complaint', (complaint) => {
+      console.log('📝 Received real-time authority complaint:', complaint);
+      const store = useStore.getState();
+      store.addComplaint(complaint);
+      
+      // Visual notification
+      addNotification({
+        type: 'info',
+        category: 'complaint',
+        title: 'New Citizen Complaint',
+        message: `${(complaint.category || 'other').toUpperCase()} filed in ${complaint.area || 'Pune'}. Severity: ${complaint.severity || 'MEDIUM'}`,
+      });
+
+      // Show real-time interactive Toast on active UI
+      showToast({
+        type: 'warning',
+        title: 'New Grievance Filed',
+        message: `A new ${complaint.category?.replace('_', ' ')} issue was reported in ${complaint.area || 'Pune Ward'}.`
+      });
+
+      // Sound notification
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.15);
+      } catch (err) {
+        console.warn('Complaint sound notification blocked or bypassed:', err);
+      }
+    });
+
+    socket.on('complaint_status_updated', ({ id, status, updated }) => {
+      console.log(`📝 Complaint ${id} status updated in real-time to ${status}`);
+      const store = useStore.getState();
+      store.updateComplaintStatus(id, status, updated);
+
+      // Show state update toast dynamically
+      showToast({
+        type: 'success',
+        title: 'Grievance Transitioned',
+        message: `Complaint ${id} status is now "${status}".`
+      });
+    });
+
+    socket.on('complaintUpdated', (updatedComplaint) => {
+      if (!updatedComplaint) return;
+      console.log('📝 Received real-time complaint update:', updatedComplaint);
+      const store = useStore.getState();
+      const id = updatedComplaint.id || updatedComplaint.complaintId;
+      store.updateComplaintStatus(id, updatedComplaint.status, updatedComplaint);
+      store.addComplaint(updatedComplaint);
+    });
+
     const sosQuery = query(dbRef(rtdb, 'sos_alerts'), limitToLast(50));
 
     let unsubscribeAdded = () => {};
@@ -189,6 +250,8 @@ export const useSocket = () => {
       socket.off('authority_receive_sos');
       socket.off('vehicle:updated');
       socket.off('risk:updated');
+      socket.off('authority_new_complaint');
+      socket.off('complaint_status_updated');
       unsubscribeAdded();
       unsubscribeChanged();
       socket.disconnect();

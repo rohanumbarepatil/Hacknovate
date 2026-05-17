@@ -51,8 +51,9 @@ const complaintService = {
   /**
    * Update complaint status (authority only)
    */
-  async updateStatus(id, status) {
-    const res = await api.put(API_ENDPOINTS.COMPLAINTS.STATUS(id), { status });
+  async updateStatus(id, statusPayload) {
+    const body = typeof statusPayload === 'string' ? { status: statusPayload } : statusPayload;
+    const res = await api.put(API_ENDPOINTS.COMPLAINTS.STATUS(id), body);
     return res.data;
   },
 };

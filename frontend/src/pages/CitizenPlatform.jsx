@@ -2,6 +2,8 @@ import { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Shield, Map as MapIcon, Activity, AlertTriangle, ChevronDown, Bell, Navigation, Search, CheckCircle2, TrendingUp, TrendingDown, Clock, BarChart3, ShieldAlert, Cpu, Zap, Radio, Loader2 } from 'lucide-react';
 import { motion, animate, AnimatePresence } from 'framer-motion';
+import complaintService from '@/services/complaintService';
+import socket from '@/services/socket';
 
 // --- ANIMATED METRIC COMPONENTS ---
 const AnimatedCounter = ({ value }) => {
@@ -100,6 +102,7 @@ const LAYER_ANALYTICS = {
 };
 
 const LiveMetricCard = ({ stat, index }) => {
+  const [isHovered, setIsHovered] = useState(false);
   const colorClass = stat.color;
   const bgSoftClass = colorClass.replace('text-', 'bg-').replace('-400', '-500/10').replace('-500', '-500/10');
   const borderSoftClass = colorClass.replace('text-', 'border-').replace('-400', '-500/20').replace('-500', '-500/20');
@@ -107,13 +110,54 @@ const LiveMetricCard = ({ stat, index }) => {
   const fromGradientClass = colorClass.replace('text-', 'from-').replace('-400', '-500/10').replace('-500', '-500/10');
   const bgPulseClass = colorClass.replace('text-', 'bg-').replace('-400', '-500').replace('-500', '-500');
   
+  // Robust shadow color lookup
+  const glowColorLookup = {
+    'text-emerald-400': 'rgba(52, 211, 153, 0.15)',
+    'text-emerald-500': 'rgba(16, 185, 129, 0.15)',
+    'text-red-400': 'rgba(248, 113, 113, 0.15)',
+    'text-red-500': 'rgba(239, 68, 68, 0.15)',
+    'text-amber-400': 'rgba(251, 191, 36, 0.15)',
+    'text-amber-500': 'rgba(245, 158, 11, 0.15)',
+    'text-blue-400': 'rgba(96, 165, 250, 0.15)',
+    'text-blue-500': 'rgba(59, 130, 246, 0.15)',
+    'text-purple-400': 'rgba(192, 132, 252, 0.15)',
+    'text-purple-500': 'rgba(168, 85, 247, 0.15)',
+    'text-orange-400': 'rgba(251, 146, 60, 0.15)',
+    'text-orange-500': 'rgba(249, 115, 22, 0.15)',
+    'text-gray-400': 'rgba(156, 163, 175, 0.15)',
+  };
+  const shadowColor = glowColorLookup[colorClass] || 'rgba(255, 255, 255, 0.1)';
+
+  // Real-time Dynamic Analytics Logic
+  const rawValue = stat.val !== undefined ? stat.val : stat.value;
+  const numValue = parseFloat(String(rawValue).replace(/,/g, '')) || 0;
+  
+  // Normalize value to 0-1 scale (assuming 300 as a high-activity baseline for this metric set)
+  const normalizedValue = Math.min(1, numValue / 300);
+  
+  // Dynamic parameters based on live data
+  const baseAmplitude = 1.5 + (normalizedValue * 8); 
+  const currentAmplitude = isHovered ? baseAmplitude * 1.5 : baseAmplitude;
+  const duration = Math.max(3, 15 - (normalizedValue * 12)); // Faster for higher values
+  const glowOpacity = 0.15 + (normalizedValue * 0.6) + (isHovered ? 0.2 : 0);
+  
+  // Dynamic SVG Path generation for smooth flowing wave
+  const wavePath = `M 0 10 Q 12.5 ${10 + currentAmplitude} 25 10 T 50 10 T 75 10 T 100 10 T 125 10 T 150 10 T 175 10 T 200 10`;
+
   return (
-    <div className={`bg-[#0f172a] border border-[#1e293b] rounded-md p-4 relative overflow-hidden group hover:bg-[#1e293b]/40 hover:${borderHoverClass} transition-all duration-300`}>
+    <div 
+      className={`bg-[#0f172a] border border-[#1e293b] rounded-md p-4 relative overflow-hidden group transition-all duration-300 ${isHovered ? 'bg-[#1e293b]/40 border-slate-700 -translate-y-0.5 z-10' : ''}`}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      style={{
+        boxShadow: isHovered ? `0 4px 20px -5px ${shadowColor}` : 'none'
+      }}
+    >
       
-      <div className="flex items-center justify-between relative z-10">
+      <div className="flex items-center justify-between relative z-20">
         <div className="flex items-center gap-4">
           {/* Left Icon Block */}
-          <div className={`w-11 h-11 rounded-md ${bgSoftClass} ${borderSoftClass} flex items-center justify-center relative overflow-hidden transition-colors duration-500`}>
+          <div className={`w-11 h-11 rounded-md ${bgSoftClass} ${borderSoftClass} flex items-center justify-center relative overflow-hidden transition-all duration-500 ${isHovered ? 'scale-110 shadow-inner' : ''}`}>
             <motion.div key={stat.label} initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.4 }}>
               <stat.icon className={`h-4 w-4 ${colorClass} relative z-10`} />
             </motion.div>
@@ -123,17 +167,27 @@ const LiveMetricCard = ({ stat, index }) => {
           {/* Center Text */}
           <div className="flex flex-col">
             <div className="flex items-end gap-1.5">
-              <span className="text-2xl font-bold text-white tracking-tight leading-none">
-                <AnimatedCounter value={stat.value} />
-              </span>
-              <span className={`h-1.5 w-1.5 rounded-full mb-1 ${bgPulseClass} animate-pulse shadow-[0_0_8px_currentColor] transition-colors duration-500`} />
+              <motion.span 
+                className="text-2xl font-bold text-white tracking-tight leading-none"
+                animate={{ y: isHovered ? -2 : 0 }}
+                transition={{ type: "spring", stiffness: 300, damping: 20 }}
+              >
+                <AnimatedCounter value={rawValue} />
+              </motion.span>
+              <span 
+                className={`h-1.5 w-1.5 rounded-full mb-1 ${bgPulseClass} shadow-[0_0_8px_currentColor] transition-all duration-500`} 
+                style={{
+                  animation: `pulse ${duration / 2}s cubic-bezier(0.4, 0, 0.6, 1) infinite`,
+                  opacity: glowOpacity
+                }}
+              />
             </div>
             <motion.span 
               key={stat.label} 
               initial={{ opacity: 0, x: -5 }} 
               animate={{ opacity: 1, x: 0 }} 
               transition={{ duration: 0.4 }}
-              className="text-[11px] font-medium text-gray-400 mt-1"
+              className="text-[11px] font-medium text-gray-400 mt-1 transition-colors duration-300 group-hover:text-gray-300"
             >
               {stat.label}
             </motion.span>
@@ -146,33 +200,68 @@ const LiveMetricCard = ({ stat, index }) => {
             key={stat.trend}
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className={`flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-sm bg-white/5 transition-colors duration-500 ${stat.trend.startsWith('+') ? 'text-red-400' : 'text-emerald-400'}`}
+            className={`flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-sm bg-white/5 transition-all duration-500 ${stat.trend.startsWith('+') || stat.trend.includes('↑') || stat.trend === 'High Alert' ? 'text-red-400 group-hover:bg-red-500/10' : 'text-emerald-400 group-hover:bg-emerald-500/10'} ${stat.trend === 'Stable' ? '!text-gray-400 group-hover:!bg-gray-500/10' : ''}`}
           >
-            {stat.trend.startsWith('+') ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-            {stat.trend.substring(1)}
+            {(stat.trend.startsWith('+') || stat.trend.includes('↑')) ? <TrendingUp className="h-3 w-3" /> : (stat.trend.startsWith('-') || stat.trend.includes('↓')) ? <TrendingDown className="h-3 w-3" /> : <Activity className="h-3 w-3" />}
+            {stat.trend.replace(/^[↑↓+-]\s*/, '')}
           </motion.div>
         </div>
       </div>
 
-      {/* Background Animated Sparkline */}
-      <div className="absolute bottom-0 left-16 right-0 h-12 opacity-30 pointer-events-none overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-[#0f172a] via-transparent to-[#0f172a] z-10" />
+      {/* Dynamic Animated Sparkline / Wave */}
+      <div className="absolute bottom-0 left-0 right-0 h-16 pointer-events-none overflow-hidden z-10">
+        <div className="absolute inset-0 bg-gradient-to-r from-[#0f172a] via-transparent to-[#0f172a] z-20" />
+        <div className={`absolute bottom-0 left-0 right-0 h-full bg-gradient-to-t ${fromGradientClass} to-transparent z-10 transition-opacity duration-500`} style={{ opacity: glowOpacity * 0.4 }} />
         
         <motion.svg
-          className={`absolute w-[200%] h-full transition-colors duration-500 ${colorClass}`}
+          className={`absolute bottom-0 w-[200%] h-full transition-colors duration-500 ${colorClass}`}
+          style={{ opacity: Math.min(1, glowOpacity), filter: `drop-shadow(0 -2px 6px currentColor)` }}
           animate={{ x: ["0%", "-50%"] }}
-          transition={{ duration: 15 + index * 2, repeat: Infinity, ease: "linear" }}
+          transition={{ duration: duration, repeat: Infinity, ease: "linear" }}
           preserveAspectRatio="none"
           viewBox="0 0 200 20"
         >
-          <path
-            d="M 0 10 Q 12.5 15 25 10 T 50 10 T 75 10 T 100 10 T 125 10 T 150 10 T 175 10 T 200 10"
+          <motion.path
+            d={wavePath}
             fill="none"
             stroke="currentColor"
-            strokeWidth="1.5"
             strokeLinecap="round"
+            initial={false}
+            animate={{ d: wavePath, strokeWidth: isHovered ? 2 : 1.2 }}
+            transition={{ type: "spring", stiffness: 100, damping: 20 }}
           />
         </motion.svg>
+        
+        {/* Dynamic Particles based on value */}
+        {normalizedValue > 0.05 && (
+          <motion.div 
+            className="absolute inset-0 z-15"
+            animate={{ x: ["0%", "-20%"] }}
+            transition={{ duration: duration * 1.5, repeat: Infinity, ease: "linear" }}
+          >
+            {[...Array(Math.max(2, Math.floor(normalizedValue * 15)))].map((_, i) => (
+              <motion.div
+                key={i}
+                className={`absolute h-[2px] w-[2px] rounded-full ${bgPulseClass}`}
+                style={{
+                  left: `${Math.random() * 200}%`,
+                  bottom: `${Math.random() * 60}%`,
+                  opacity: Math.random() * 0.5 + 0.2
+                }}
+                animate={{
+                  y: [0, -5 - Math.random() * 15, 0],
+                  opacity: [0, 1, 0]
+                }}
+                transition={{
+                  duration: 1.5 + Math.random() * 2,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                  delay: Math.random() * 2
+                }}
+              />
+            ))}
+          </motion.div>
+        )}
       </div>
     </div>
   );
@@ -258,6 +347,170 @@ export default function CitizenPlatform() {
   const [stats, setStats] = useState(null);
   const [feed, setFeed] = useState([]);
   const [wards, setWards] = useState([]);
+
+  // Live Complaint Tracking States
+  const [trackedComplaint, setTrackedComplaint] = useState(null);
+  const [complaintSearchId, setComplaintSearchId] = useState('');
+  const [trackedError, setTrackedError] = useState('');
+  const [userComplaints, setUserComplaints] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [hoveredSegment, setHoveredSegment] = useState(null);
+
+  // Fetch all citizen filed complaints
+  const fetchUserComplaints = async () => {
+    try {
+      const response = await complaintService.getMine();
+      const complaints = response.success ? response.data : response;
+      if (Array.isArray(complaints)) {
+        setUserComplaints(complaints);
+        // Default to tracking the most recent if nothing active
+        if (!trackedComplaint && complaints.length > 0) {
+          setTrackedComplaint(complaints[0]);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load user complaints:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchUserComplaints();
+  }, []);
+
+  // Set up socket listener for real-time tracking updates
+  useEffect(() => {
+    const handleComplaintUpdate = (updated) => {
+      if (!updated) return;
+      console.log("🔔 Dynamic track client got real-time update:", updated);
+      
+      // Update in-place if tracking matches
+      setTrackedComplaint((current) => {
+        if (current && (
+          current.id === updated.id || 
+          current.complaintId === updated.id || 
+          current.id === updated.complaintId || 
+          current.complaintId === updated.complaintId
+        )) {
+          return { ...current, ...updated };
+        }
+        return current;
+      });
+
+      // Refresh list
+      fetchUserComplaints();
+    };
+
+    socket.on('complaintUpdated', handleComplaintUpdate);
+    
+    const handleStatusUpdate = ({ id, status, updated }) => {
+      if (updated) {
+        handleComplaintUpdate(updated);
+      } else {
+        // Direct status patch fallback
+        setTrackedComplaint((current) => {
+          if (current && (current.id === id || current.complaintId === id)) {
+            return { ...current, status };
+          }
+          return current;
+        });
+      }
+      fetchUserComplaints();
+    };
+
+    socket.on('complaint_status_updated', handleStatusUpdate);
+
+    return () => {
+      socket.off('complaintUpdated', handleComplaintUpdate);
+      socket.off('complaint_status_updated', handleStatusUpdate);
+    };
+  }, []);
+
+  const handleSearchComplaint = async (e) => {
+    e.preventDefault();
+    if (!complaintSearchId.trim()) return;
+    setSearchLoading(true);
+    setTrackedError('');
+    try {
+      const response = await complaintService.getById(complaintSearchId.trim());
+      const complaint = response.success ? response.data : response;
+      if (complaint) {
+        setTrackedComplaint(complaint);
+      } else {
+        setTrackedError('Grievance not found. Check the ID.');
+      }
+    } catch (err) {
+      setTrackedError('Error fetching grievance details.');
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const getSafeStatus = (item) => {
+    if (!item) return 'Submitted';
+    const statusVal = item.status;
+    if (typeof statusVal === 'object' && statusVal !== null) {
+      return statusVal.status || 'Submitted';
+    }
+    return statusVal || 'Submitted';
+  };
+
+  const getTimelineSteps = () => {
+    if (!trackedComplaint) return [];
+    
+    // If we have a rich workflow history from database, use it
+    if (trackedComplaint.workflowHistory && trackedComplaint.workflowHistory.length > 0) {
+      return trackedComplaint.workflowHistory;
+    }
+    
+    // Dynamic fallback timeline generation
+    const steps = [];
+    const status = getSafeStatus(trackedComplaint);
+    
+    steps.push({
+      status: 'Submitted',
+      note: 'Complaint registered successfully.',
+      updatedBy: 'Citizen',
+      timestamp: 'Just now'
+    });
+    
+    if (status === 'Under Review' || status === 'Assigned' || status === 'In Progress' || status === 'Resolved') {
+      steps.push({
+        status: 'Under Review',
+        note: 'AI-Triage and category routing complete.',
+        updatedBy: 'SafeCity Core',
+        timestamp: 'Just now'
+      });
+    }
+    
+    if (status === 'Assigned' || status === 'In Progress' || status === 'Resolved') {
+      steps.push({
+        status: 'Assigned',
+        note: `Assigned to ${trackedComplaint.assignedDepartment || 'respective municipal wing'}.`,
+        updatedBy: 'Command Center',
+        timestamp: 'Just now'
+      });
+    }
+    
+    if (status === 'In Progress' || status === 'Resolved') {
+      steps.push({
+        status: 'In Progress',
+        note: 'Operations crew dispatched to address grievance.',
+        updatedBy: trackedComplaint.assignedDepartment || 'PMC Operations',
+        timestamp: 'Just now'
+      });
+    }
+    
+    if (status === 'Resolved') {
+      steps.push({
+        status: 'Resolved',
+        note: 'Problem successfully resolved. Resolution verified.',
+        updatedBy: 'PMC Command Center',
+        timestamp: 'Just now'
+      });
+    }
+    
+    return steps;
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -651,57 +904,366 @@ export default function CitizenPlatform() {
           {/* RIGHT PANEL - Enterprise Analytics */}
           <div className="w-full xl:w-80 flex flex-col gap-4 shrink-0 mt-8 xl:mt-14">
             
-            {/* Animated City Statistics Gauge */}
-            <div className="bg-[#0b1120] border border-[#1e293b] rounded-sm p-6 flex flex-col items-center justify-center relative overflow-hidden group shadow-[inset_0_0_60px_rgba(0,0,0,0.5)]">
-              {/* Subtle background radar/grid effect */}
-              <div className="absolute inset-0 pointer-events-none opacity-[0.03] bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:16px_16px]" />
-              
-              <div className="relative w-48 h-48 flex items-center justify-center z-10">
-                {/* Background Track Ring */}
-                <svg className="absolute inset-0 w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                  <circle 
-                    cx="50" 
-                    cy="50" 
-                    r="44" 
-                    fill="none" 
-                    stroke="#1e293b" 
-                    strokeWidth="4" 
+            {/* Redesigned Premium City Statistics Circular Analytics System */}
+            {(() => {
+              const R = 40;
+              const circumferenceVal = 2 * Math.PI * R; // 251.327
+              const segmentMax = circumferenceVal / 4 - 5; // 57.83 pixels max active length
+
+              const statsSegments = [
+                {
+                  id: 'incidents',
+                  label: 'Incidents',
+                  value: stats?.unsafeRoadReports || 56,
+                  max: 120,
+                  unit: 'Active',
+                  color: '#ef4444', // Red
+                  glowColor: 'rgba(239, 68, 68, 0.45)',
+                  offset: 0,
+                  trend: '↑ 8% vs yesterday',
+                  icon: AlertTriangle,
+                },
+                {
+                  id: 'alerts',
+                  label: 'Active Alerts',
+                  value: stats?.emergencyDispatches || 124,
+                  max: 250,
+                  unit: 'Dispatched',
+                  color: '#10b981', // Green
+                  glowColor: 'rgba(16, 185, 129, 0.45)',
+                  offset: -62.83,
+                  trend: '↑ 18% high alert',
+                  icon: Shield,
+                },
+                {
+                  id: 'complaints',
+                  label: 'Complaints',
+                  value: stats?.activeComplaints || 215,
+                  max: 400,
+                  unit: 'Open Grid',
+                  color: '#3b82f6', // Blue
+                  glowColor: 'rgba(59, 130, 246, 0.45)',
+                  offset: -125.66,
+                  trend: '↑ 5% ticket load',
+                  icon: Bell,
+                },
+                {
+                  id: 'risk',
+                  label: 'Risk Wards',
+                  value: stats?.highRiskWards || 7,
+                  max: 20,
+                  unit: 'Risk Zones',
+                  color: '#a855f7', // Purple
+                  glowColor: 'rgba(168, 85, 247, 0.45)',
+                  offset: -188.49,
+                  trend: 'Stable profile',
+                  icon: Activity,
+                }
+              ];
+
+              const keyframesStyles = statsSegments.map((seg, idx) => {
+                const percentage = Math.min(100, (seg.value / seg.max) * 100);
+                const arcLength = (percentage / 100) * segmentMax;
+                return `
+                  @keyframes trailMove-${idx} {
+                    0% { stroke-dashoffset: ${seg.offset}; }
+                    100% { stroke-dashoffset: ${seg.offset - arcLength}; }
+                  }
+                `;
+              }).join('\n') + `
+                @keyframes gridShift {
+                  0% { background-position: 0px 0px; }
+                  100% { background-position: 16px 16px; }
+                }
+              `;
+
+              return (
+                <div className="bg-[#060B18]/90 border border-slate-800/80 rounded-2xl p-6 flex flex-col items-center justify-center relative overflow-hidden group shadow-[0_0_50px_rgba(0,0,0,0.8)] min-h-[290px] w-full">
+                  <style dangerouslySetInnerHTML={{ __html: keyframesStyles }} />
+                  
+                  {/* Cinematic Ambient Background Details */}
+                  {/* 1. Slow moving grid texture */}
+                  <div 
+                    className="absolute inset-0 pointer-events-none opacity-[0.03] bg-[linear-gradient(rgba(255,255,255,0.07)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.07)_1px,transparent_1px)] [background-size:16px_16px]"
+                    style={{
+                      animation: 'gridShift 40s linear infinite'
+                    }}
                   />
-                  {/* Dynamic Segments */}
-                  {ringSegments.map((seg, i) => {
-                    if (seg.length === 0) return null;
-                    return (
-                      <motion.circle 
+                  
+                  {/* 2. Low-opacity ambient network pulse line */}
+                  <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-20" viewBox="0 0 100 100" preserveAspectRatio="none">
+                    <motion.path 
+                      d="M -10,30 Q 30,20 60,40 T 110,35" 
+                      fill="none" 
+                      stroke="rgba(59, 130, 246, 0.12)" 
+                      strokeWidth="0.5"
+                      animate={{ d: ["M -10,30 Q 30,20 60,40 T 110,35", "M -10,32 Q 30,24 60,38 T 110,37", "M -10,30 Q 30,20 60,40 T 110,35"] }}
+                      transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+                    />
+                    <motion.path 
+                      d="M -10,70 Q 40,80 70,60 T 110,65" 
+                      fill="none" 
+                      stroke="rgba(168, 85, 247, 0.08)" 
+                      strokeWidth="0.5"
+                      animate={{ d: ["M -10,70 Q 40,80 70,60 T 110,65", "M -10,68 Q 40,77 70,62 T 110,63", "M -10,70 Q 40,80 70,60 T 110,65"] }}
+                      transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+                    />
+                  </svg>
+
+                  {/* 3. Tiny floating data flicker particles */}
+                  <div className="absolute inset-0 pointer-events-none overflow-hidden select-none">
+                    {[...Array(6)].map((_, i) => (
+                      <motion.div
                         key={i}
+                        className="absolute h-1 w-1 bg-blue-500/35 rounded-full"
+                        style={{
+                          left: `${15 + Math.random() * 70}%`,
+                          top: `${15 + Math.random() * 70}%`,
+                          filter: 'blur(0.5px)',
+                        }}
+                        animate={{
+                          y: [0, -30, 0],
+                          x: [0, 15, 0],
+                          opacity: [0, 0.7, 0],
+                          scale: [0.5, 1.2, 0.5]
+                        }}
+                        transition={{
+                          duration: 6 + i * 2,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                          delay: i * 0.8
+                        }}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Rotating outer ring glow breathing */}
+                  <div className="absolute w-52 h-52 rounded-full border border-slate-850/20 bg-[#060D18]/40 pointer-events-none scale-105 shadow-[0_0_40px_rgba(30,41,59,0.15)]" />
+
+                  {/* Dynamic Tooltip slide-in on hover */}
+                  <AnimatePresence>
+                    {hoveredSegment !== null && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                        transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                        className="absolute top-2.5 z-20 px-3 py-1.5 bg-[#0A1124] border border-slate-800/80 rounded-lg shadow-2xl flex items-center gap-1.5 pointer-events-none select-none"
+                      >
+                        <span 
+                          className="h-1.5 w-1.5 rounded-full animate-ping" 
+                          style={{ backgroundColor: statsSegments[hoveredSegment].color }}
+                        />
+                        <span className="text-[9px] font-bold text-slate-300 tracking-wider uppercase">
+                          {statsSegments[hoveredSegment].trend}
+                        </span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Center Gauge Circular System */}
+                  <div className="relative w-48 h-48 flex items-center justify-center z-10 cursor-pointer select-none">
+                    
+                    {/* SVG Drawing of Segmented Arcs & Radar Sweep */}
+                    <svg className="absolute inset-0 w-full h-full transform rotate-0" viewBox="0 0 100 100">
+                      <defs>
+                        <linearGradient id="radarTail" x1="1" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.12" />
+                          <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+                        </linearGradient>
+                      </defs>
+
+                      {/* Micro rotating background dashboard tick rings */}
+                      <motion.circle 
                         cx="50" 
                         cy="50" 
-                        r="44" 
+                        r="45" 
                         fill="none" 
-                        stroke={seg.color}
-                        strokeWidth="4"
-                        strokeLinecap="round"
-                        initial={{ strokeDasharray: `0 ${circumference}`, strokeDashoffset: seg.offset }}
-                        animate={{ strokeDasharray: `${seg.length} ${circumference}`, strokeDashoffset: seg.offset }}
-                        transition={{ duration: 1.2, ease: [0.32, 0.72, 0, 1] }}
-                        style={{ filter: `drop-shadow(0 0 6px ${seg.color}60)` }}
+                        stroke="rgba(30, 41, 59, 0.25)" 
+                        strokeWidth="0.5" 
+                        strokeDasharray="2 6"
+                        animate={{ rotate: 360 }}
+                        transition={{ repeat: Infinity, duration: 90, ease: "linear" }}
                       />
-                    );
-                  })}
-                </svg>
 
-                {/* Center Content */}
-                <div className="flex flex-col items-center justify-center text-center">
-                  <BarChart3 className="h-6 w-6 text-gray-300 mb-2 opacity-90 transition-colors duration-500" />
-                  <h3 className="text-[11px] font-bold text-gray-300 uppercase tracking-widest leading-tight transition-colors duration-500">
-                    City<br/>Statistics
-                  </h3>
-                  <div className="flex items-center gap-1.5 mt-2 opacity-70">
-                     <span className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse" />
-                     <p className="text-[9px] text-gray-400 font-medium uppercase tracking-widest">Live Data</p>
+                      {/* 1. Underlying Quadrant Track Rings */}
+                      {[0, 1, 2, 3].map((idx) => {
+                        const seg = statsSegments[idx];
+                        return (
+                          <circle 
+                            key={`track-${idx}`}
+                            cx="50" 
+                            cy="50" 
+                            r="40" 
+                            fill="none" 
+                            stroke="#111A2E" 
+                            strokeWidth="3.5" 
+                            strokeDasharray={`${segmentMax} ${circumferenceVal}`}
+                            strokeDashoffset={seg.offset}
+                            strokeLinecap="round"
+                            opacity="0.8"
+                            transform="rotate(-90 50 50)"
+                          />
+                        );
+                      })}
+
+                      {/* 2. Real-Time Active Arcs */}
+                      {statsSegments.map((seg, idx) => {
+                        const percentage = Math.min(100, (seg.value / seg.max) * 100);
+                        const arcLength = (percentage / 100) * segmentMax;
+                        const isHovered = hoveredSegment === idx;
+                        
+                        return (
+                          <motion.circle 
+                            key={`arc-${idx}`}
+                            cx="50" 
+                            cy="50" 
+                            r="40" 
+                            fill="none" 
+                            stroke={seg.color}
+                            strokeWidth={isHovered ? 5.5 : 3.5}
+                            strokeLinecap="round"
+                            strokeDasharray={`${arcLength} ${circumferenceVal}`}
+                            initial={{ strokeDasharray: `0 ${circumferenceVal}` }}
+                            animate={{ strokeDasharray: `${arcLength} ${circumferenceVal}` }}
+                            transition={{ duration: 1.5, ease: [0.16, 1, 0.3, 1] }}
+                            strokeDashoffset={seg.offset}
+                            transform="rotate(-90 50 50)"
+                            onMouseEnter={() => setHoveredSegment(idx)}
+                            onMouseLeave={() => setHoveredSegment(null)}
+                            style={{
+                              filter: isHovered 
+                                ? `drop-shadow(0 0 8px ${seg.color})` 
+                                : `drop-shadow(0 0 3px ${seg.color}45)`,
+                              cursor: 'pointer',
+                              transition: 'stroke-width 0.25s ease, filter 0.25s ease',
+                            }}
+                          />
+                        );
+                      })}
+
+                      {/* 3. Traveling particle trails for live operational look */}
+                      {statsSegments.map((seg, idx) => {
+                        const percentage = Math.min(100, (seg.value / seg.max) * 100);
+                        const arcLength = (percentage / 100) * segmentMax;
+                        if (arcLength < 5) return null;
+                        
+                        return (
+                          <circle 
+                            key={`particle-${idx}`}
+                            cx="50" 
+                            cy="50" 
+                            r="40" 
+                            fill="none" 
+                            stroke="#ffffff"
+                            strokeWidth="0.75"
+                            strokeLinecap="round"
+                            strokeDasharray="1 100"
+                            strokeDashoffset={seg.offset}
+                            transform="rotate(-90 50 50)"
+                            className="pointer-events-none opacity-60"
+                            style={{
+                              animation: `trailMove-${idx} 3s linear infinite`,
+                            }}
+                          />
+                        );
+                      })}
+
+                      {/* 4. Cinematic Radar Sweep ray */}
+                      <motion.line
+                        x1="50"
+                        y1="50"
+                        x2="50"
+                        y2="10"
+                        stroke="rgba(59, 130, 246, 0.22)"
+                        strokeWidth="0.75"
+                        strokeLinecap="round"
+                        style={{ originX: "50px", originY: "50px" }}
+                        animate={{ rotate: 360 }}
+                        transition={{ repeat: Infinity, duration: 8, ease: "linear" }}
+                      />
+
+                      {/* 5. Trailing radar sweep fade wedge */}
+                      <motion.path
+                        d="M50,50 L50,10 A40,40 0 0,1 62,11.5 Z"
+                        fill="url(#radarTail)"
+                        style={{ originX: "50px", originY: "50px" }}
+                        animate={{ rotate: 360 }}
+                        transition={{ repeat: Infinity, duration: 8, ease: "linear" }}
+                      />
+                    </svg>
+
+                    {/* Inner center text layout (Reacts dynamically to hover states) */}
+                    <AnimatePresence mode="wait">
+                      {hoveredSegment === null ? (
+                        <motion.div 
+                          key="default-center"
+                          initial={{ opacity: 0, scale: 0.96 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.96 }}
+                          transition={{ duration: 0.2 }}
+                          className="flex flex-col items-center justify-center text-center px-4 select-none pointer-events-none"
+                        >
+                          <motion.div
+                            animate={{ 
+                              scale: [1, 1.05, 1],
+                              opacity: [0.85, 1, 0.85]
+                            }}
+                            transition={{ 
+                              duration: 4, 
+                              repeat: Infinity, 
+                              ease: "easeInOut" 
+                            }}
+                          >
+                            <BarChart3 className="h-5 w-5 text-slate-400 mb-1.5" />
+                          </motion.div>
+                          <h3 className="text-[10px] font-bold text-slate-300 uppercase tracking-[0.2em] leading-tight select-none">
+                            City Statistics
+                          </h3>
+                          <div className="flex items-center gap-1 mt-2.5 opacity-90 select-none">
+                             <span className="h-1 w-1 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_6px_rgba(16,185,129,0.8)]" />
+                             <p className="text-[8px] text-slate-400 font-bold uppercase tracking-[0.15em]">Live Data</p>
+                          </div>
+                        </motion.div>
+                      ) : (() => {
+                        const activeSeg = statsSegments[hoveredSegment];
+                        return (
+                          <motion.div 
+                            key={`hover-${hoveredSegment}`}
+                            initial={{ opacity: 0, scale: 0.96, y: 5 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.96, y: -5 }}
+                            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                            className="flex flex-col items-center justify-center text-center px-4 select-none pointer-events-none"
+                          >
+                            <activeSeg.icon 
+                              className="h-5 w-5 mb-1.5 animate-pulse" 
+                              style={{ color: activeSeg.color }}
+                            />
+                            <h3 className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em] leading-none mb-1">
+                              {activeSeg.label}
+                            </h3>
+                            <span 
+                              className="text-xl font-bold tracking-tight mt-0.5"
+                              style={{ 
+                                color: activeSeg.color,
+                                textShadow: `0 0 10px ${activeSeg.glowColor}` 
+                              }}
+                            >
+                              <AnimatedCounter value={activeSeg.value} />
+                            </span>
+                            <p className="text-[8px] text-slate-500 font-medium uppercase tracking-[0.1em] mt-1 leading-none">
+                              {activeSeg.unit}
+                            </p>
+                          </motion.div>
+                        );
+                      })()}
+                    </AnimatePresence>
+
                   </div>
                 </div>
-              </div>
-            </div>
+              );
+            })()}
 
             {/* Stacked Analytics Cards (Minimalist Datadog/Microsoft Style) */}
             <div className="flex-1 flex flex-col gap-3">
@@ -724,7 +1286,13 @@ export default function CitizenPlatform() {
               <p className="text-gray-400 text-sm">Your reports update the live city map instantly.</p>
             </div>
             <div className="bg-[#0f172a] border border-white/10 rounded-2xl p-6 shadow-xl">
-              <ComplaintForm />
+              <ComplaintForm onSuccess={(newComplaint) => {
+                if (newComplaint) {
+                  setTrackedComplaint(newComplaint);
+                  setTrackedError('');
+                }
+                fetchUserComplaints();
+              }} />
             </div>
           </div>
 
@@ -742,87 +1310,189 @@ export default function CitizenPlatform() {
               {/* Subtle background radar/grid effect */}
               <div className="absolute inset-0 pointer-events-none opacity-[0.03] bg-[radial-gradient(#ffffff_1px,transparent_1px)] [background-size:16px_16px]" />
               
-              <div className="flex items-center justify-between mb-6 relative z-10">
+              <div className="flex items-center justify-between mb-4 relative z-10">
                 <h3 className="text-[12px] font-bold text-gray-300 uppercase tracking-widest flex items-center gap-2">
                    <Clock className="h-4 w-4 text-blue-500" /> Live Tracking
                 </h3>
-                <span className="text-[10px] font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-sm uppercase tracking-widest shadow-[inset_0_0_8px_rgba(59,130,246,0.2)]">Active</span>
+                {trackedComplaint && (() => {
+                  const safeStatus = getSafeStatus(trackedComplaint);
+                  return (
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-sm uppercase tracking-widest shadow-[inset_0_0_8px_rgba(59,130,246,0.2)] ${
+                      safeStatus === 'Resolved' 
+                        ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 shadow-[inset_0_0_8px_rgba(16,185,129,0.2)]'
+                        : safeStatus === 'Rejected'
+                        ? 'text-red-400 bg-red-500/10 border border-red-500/20 shadow-[inset_0_0_8px_rgba(239,68,68,0.2)]'
+                        : 'text-blue-400 bg-blue-500/10 border border-blue-500/20'
+                    }`}>
+                      {safeStatus}
+                    </span>
+                  );
+                })()}
               </div>
 
-              {/* Swiggy/Uber Style Tracker */}
-              <div className="relative z-10 flex flex-col gap-5">
-                {/* Status Header */}
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h4 className="text-[15px] font-bold text-white mb-0.5">Road Damage near FC Road</h4>
-                    <p className="text-[12px] text-gray-400 font-mono">ID: #PMC-2026-8942</p>
+              {/* Dynamic Search & selector interface */}
+              <div className="relative z-10 mb-5 flex flex-col gap-3">
+                <form onSubmit={handleSearchComplaint} className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-500" />
+                    <input
+                      type="text"
+                      placeholder="Search ID COMP-PUNE-..."
+                      value={complaintSearchId}
+                      onChange={(e) => setComplaintSearchId(e.target.value)}
+                      className="w-full bg-[#0b1120] border border-[#1e293b] rounded-lg pl-9 pr-3 py-2 text-xs font-semibold text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
+                    />
                   </div>
-                  <div className="text-right">
-                    <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-0.5">ETA</p>
-                    <p className="text-[14px] font-bold text-emerald-400">12 Hours</p>
+                  <button
+                    type="submit"
+                    disabled={searchLoading}
+                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-3 py-2 text-xs font-bold transition-all disabled:opacity-50 flex items-center justify-center shrink-0"
+                  >
+                    {searchLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Track'}
+                  </button>
+                </form>
+
+                {userComplaints.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider shrink-0">Your Submissions:</span>
+                    <select
+                      value={trackedComplaint ? trackedComplaint.complaintId || trackedComplaint.id : ''}
+                      onChange={(e) => {
+                        const selected = userComplaints.find(c => (c.complaintId === e.target.value || c.id === e.target.value));
+                        if (selected) {
+                          setTrackedComplaint(selected);
+                          setTrackedError('');
+                        }
+                      }}
+                      className="flex-1 bg-[#0f172a] border border-[#1e293b] rounded-lg px-2 py-1 text-xs text-gray-300 focus:outline-none focus:border-blue-500 font-medium"
+                    >
+                      {userComplaints.map((c) => (
+                        <option key={c.id || c.complaintId} value={c.complaintId || c.id}>
+                          {(c.complaintId || c.id).substring(0, 18)} - {(c.category || 'other').toUpperCase()}
+                        </option>
+                      ))}
+                    </select>
                   </div>
+                )}
+
+                {trackedError && (
+                  <p className="text-[11px] text-red-400 font-semibold mt-0.5">{trackedError}</p>
+                )}
+              </div>
+
+              {!trackedComplaint ? (
+                <div className="text-center py-10 border border-dashed border-[#1e293b] rounded-xl relative z-10 flex flex-col items-center justify-center bg-[#070b14]/50">
+                  <Activity className="h-8 w-8 text-gray-600 mb-2 animate-pulse" />
+                  <p className="text-gray-400 text-[11px] font-bold uppercase tracking-wider">No Active Grievance Tracked</p>
+                  <p className="text-gray-500 text-[10px] mt-1 max-w-[200px] leading-relaxed">Submit a complaint via the portal form or select from your list to initiate live status tracking.</p>
                 </div>
-
-                {/* Vertical Timeline */}
-                <div className="relative pl-[18px] mt-4">
-                  {/* Background Track Line */}
-                  <div className="absolute left-[20px] top-2 bottom-2 w-0.5 bg-[#1e293b] rounded-full" />
-                  {/* Active Track Line */}
-                  <div className="absolute left-[20px] top-2 h-[55%] w-0.5 bg-blue-500 rounded-full" />
-                  
-                  {/* Step 1: Submitted (Done) */}
-                  <div className="relative flex gap-4 mb-5">
-                    <div className="absolute left-[-4.5px] h-3 w-3 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)] z-10 ring-4 ring-[#0b1120]" />
-                    <div className="flex flex-col -mt-1">
-                      <span className="text-[13px] font-bold text-gray-200 leading-none">Submitted</span>
-                      <span className="text-[11px] text-gray-500 mt-1 font-medium">Today, 08:30 AM</span>
+              ) : (
+                /* Dynamic Swiggy/Uber Style Tracker */
+                <div className="relative z-10 flex flex-col gap-5">
+                  {/* Status Header */}
+                  <div className="flex justify-between items-start border-t border-[#1e293b] pt-4">
+                    <div>
+                      <h4 className="text-[14px] font-bold text-white mb-0.5 capitalize">{trackedComplaint.category?.replace('_', ' ')}</h4>
+                      <p className="text-[11px] text-gray-400 font-mono select-all">ID: {trackedComplaint.complaintId || trackedComplaint.id}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-0.5">ETA</p>
+                      <p className={`text-[13px] font-bold ${getSafeStatus(trackedComplaint) === 'Resolved' ? 'text-emerald-400' : 'text-amber-400'}`}>
+                        {trackedComplaint.eta || 'Calculating...'}
+                      </p>
                     </div>
                   </div>
 
-                  {/* Step 2: Under Review (Done) */}
-                  <div className="relative flex gap-4 mb-5">
-                    <div className="absolute left-[-4.5px] h-3 w-3 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)] z-10 ring-4 ring-[#0b1120]" />
-                    <div className="flex flex-col -mt-1">
-                      <span className="text-[13px] font-bold text-gray-200 leading-none">Under Review</span>
-                      <span className="text-[11px] text-gray-500 mt-1 font-medium flex items-center gap-1">
-                         <CheckCircle2 className="h-3 w-3 text-emerald-500" /> Verified by AI
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Step 3: In Progress (Active) */}
-                  <div className="relative flex gap-4 mb-6">
-                    <div className="absolute left-[-6px] h-4 w-4 rounded-full bg-blue-500 z-10 ring-4 ring-[#0b1120] flex items-center justify-center shadow-[0_0_12px_rgba(59,130,246,0.6)]">
-                       <span className="h-1.5 w-1.5 bg-white rounded-full animate-pulse" />
-                    </div>
-                    <div className="flex flex-col w-full -mt-0.5">
-                      <span className="text-[14px] font-bold text-blue-400 leading-none">In Progress</span>
-                      <div className="mt-3 bg-[#1e293b]/40 border border-[#1e293b] rounded-lg p-3.5">
-                        <div className="flex items-center gap-3 mb-2.5">
-                          <div className="h-8 w-8 rounded-full bg-[#0f172a] border border-[#1e293b] flex items-center justify-center shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]">
-                             <ShieldAlert className="h-4 w-4 text-amber-500" />
-                          </div>
-                          <div>
-                            <p className="text-[12px] font-bold text-gray-200 tracking-wide">PMC Road Dept.</p>
-                            <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider mt-0.5">Assigned Team</p>
-                          </div>
-                        </div>
-                        <p className="text-[12px] text-gray-400 border-t border-[#1e293b] pt-2.5 italic">
-                          "Team dispatched. Excavator arriving at location for immediate repair."
-                        </p>
+                  {trackedComplaint.imageUrl && (
+                    <div className="relative rounded-lg overflow-hidden h-24 w-full border border-[#1e293b]">
+                      <img 
+                        src={trackedComplaint.imageUrl.startsWith('http') || trackedComplaint.imageUrl.startsWith('/') || trackedComplaint.imageUrl.startsWith('data:') 
+                          ? trackedComplaint.imageUrl 
+                          : `http://localhost:3001${trackedComplaint.imageUrl}`}
+                        alt="Uploaded evidence verified"
+                        className="object-cover h-full w-full opacity-80 hover:opacity-100 transition-opacity duration-300"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                        }}
+                      />
+                      <div className="absolute top-2 left-2 bg-black/60 backdrop-blur-md text-[9px] font-bold text-gray-300 px-2 py-0.5 rounded-sm uppercase tracking-widest border border-white/10">
+                        Visual Verification
                       </div>
                     </div>
-                  </div>
+                  )}
 
-                  {/* Step 4: Resolved (Pending) */}
-                  <div className="relative flex gap-4">
-                    <div className="absolute left-[-3.5px] h-2.5 w-2.5 rounded-full bg-[#1e293b] z-10 ring-4 ring-[#0b1120]" />
-                    <div className="flex flex-col -mt-1">
-                      <span className="text-[13px] font-bold text-gray-500 leading-none">Resolved</span>
-                    </div>
+                  {/* Vertical Timeline */}
+                  <div className="relative pl-[18px] mt-2">
+                    {/* Background Track Line */}
+                    <div className="absolute left-[20px] top-2 bottom-2 w-0.5 bg-[#1e293b] rounded-full" />
+                    
+                    {/* Active Track Line */}
+                    <div 
+                      className="absolute left-[20px] top-2 w-0.5 bg-blue-500 rounded-full transition-all duration-700" 
+                      style={{
+                        height: 
+                          getSafeStatus(trackedComplaint) === 'Submitted' ? '15%' :
+                          getSafeStatus(trackedComplaint) === 'Under Review' ? '40%' :
+                          getSafeStatus(trackedComplaint) === 'Assigned' ? '65%' :
+                          getSafeStatus(trackedComplaint) === 'In Progress' ? '80%' :
+                          getSafeStatus(trackedComplaint) === 'Resolved' || getSafeStatus(trackedComplaint) === 'Rejected' ? '100%' : '15%'
+                      }}
+                    />
+                    
+                    {getTimelineSteps().map((step, idx) => {
+                      const isLast = idx === getTimelineSteps().length - 1;
+                      const isResolved = step.status === 'Resolved';
+                      const isRejected = step.status === 'Rejected';
+
+                      return (
+                        <div key={idx} className={`relative flex gap-4 ${isLast ? '' : 'mb-5'}`}>
+                          {/* Dot indicator */}
+                          {isLast ? (
+                            isResolved ? (
+                              <div className="absolute left-[-6px] h-4 w-4 rounded-full bg-emerald-500 z-10 ring-4 ring-[#0b1120] flex items-center justify-center shadow-[0_0_12px_rgba(16,185,129,0.8)] animate-bounce">
+                                <CheckCircle2 className="h-3 w-3 text-white" />
+                              </div>
+                            ) : isRejected ? (
+                              <div className="absolute left-[-6px] h-4 w-4 rounded-full bg-red-500 z-10 ring-4 ring-[#0b1120] flex items-center justify-center shadow-[0_0_12px_rgba(239,68,68,0.8)]">
+                                <AlertTriangle className="h-3 w-3 text-white" />
+                              </div>
+                            ) : (
+                              <div className="absolute left-[-6px] h-4 w-4 rounded-full bg-blue-500 z-10 ring-4 ring-[#0b1120] flex items-center justify-center shadow-[0_0_12px_rgba(59,130,246,0.6)]">
+                                 <span className="h-1.5 w-1.5 bg-white rounded-full animate-pulse" />
+                              </div>
+                            )
+                          ) : (
+                            <div className="absolute left-[-4.5px] h-3 w-3 rounded-full bg-blue-500/70 shadow-[0_0_8px_rgba(59,130,246,0.3)] z-10 ring-4 ring-[#0b1120]" />
+                          )}
+
+                          <div className="flex flex-col w-full -mt-0.5">
+                            <span className={`text-[13px] font-bold leading-none ${isLast ? (isResolved ? 'text-emerald-400' : isRejected ? 'text-red-400' : 'text-blue-400') : 'text-gray-300'}`}>
+                              {typeof step.status === 'object' ? (step.status.status || 'Submitted') : step.status}
+                            </span>
+                            <span className="text-[10px] text-gray-500 mt-1 font-semibold">
+                              {step.timestamp} - Updated by {typeof step.updatedBy === 'object' ? (step.updatedBy.updatedBy || 'Authority') : step.updatedBy}
+                            </span>
+                            
+                            {step.note && (
+                              <div className={`mt-2 bg-[#1e293b]/40 border ${isLast && isResolved ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-[#1e293b]'} rounded-lg p-3`}>
+                                <p className="text-[12px] text-gray-300 leading-relaxed italic">
+                                  "{typeof step.note === 'object' ? (step.note.note || '') : step.note}"
+                                </p>
+                                
+                                {isLast && isResolved && (
+                                  <div className="mt-2.5 flex items-center gap-1.5 text-emerald-400 text-[11px] font-bold uppercase tracking-wider animate-pulse">
+                                    <CheckCircle2 className="h-4 w-4" /> Problem Successfully Resolved
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* 2. Emergency Access (Redesigned) */}
